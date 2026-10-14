@@ -1,7 +1,7 @@
 # Changelog
 
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/), phiên bản theo [SemVer](https://semver.org/lang/vi/).
-Phát hành: đẩy tag `vX.Y.Z` lên `main` → workflow *Release* tạo GitHub Release từ mục tương ứng bên dưới,
+Phát hành: đẩy tag `vX.Y.Z` (hoặc chạy tay workflow *Release* trên `main` với `tag: vX.Y.Z`) → GitHub Release từ mục tương ứng bên dưới,
 workflow *Images* build image GHCR cùng tag.
 
 ## [Unreleased]

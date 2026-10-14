@@ -7,13 +7,19 @@ name: Images
 #   ghcr.io/hitechcloud-vietnam/hitechpay-dashboard     upstream/hyperswitch-control-center
 #   ghcr.io/hitechcloud-vietnam/hitechpay-checkout-sdk  upstream/hyperswitch-web
 # Tags: the upstream release the patches sit on (e.g. v1.127.0, used by deploy/helm), the git
-# tag (v*), the branch (main), latest (default branch) and sha-<short>.
+# tag (v*), the release version given to a manual run (`version` input), the branch (main),
+# latest (default branch) and sha-<short>.
 
 on:
   push:
     branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Extra image tag for a release, e.g. v0.1.0 (used by the Release workflow)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -92,6 +98,7 @@ jobs:
           tags: |
             type=raw,value=${{ steps.upstream.outputs.tag }},enable=${{ steps.upstream.outputs.tag != '' }}
             type=ref,event=tag
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' && inputs.version != null }}
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
@@ -120,6 +127,7 @@ jobs:
           tags: |
             type=raw,value=${{ steps.upstream.outputs.tag }},enable=${{ steps.upstream.outputs.tag != '' }}
             type=ref,event=tag
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' && inputs.version != null }}
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
@@ -205,6 +213,7 @@ jobs:
           tags: |
             type=raw,value=${{ steps.upstream.outputs.tag }},enable=${{ steps.upstream.outputs.tag != '' }}
             type=ref,event=tag
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' && inputs.version != null }}
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
