@@ -103,7 +103,7 @@ jobs:
           file: upstream/hyperswitch/Dockerfile
           build-args: |
             BINARY=router
-            EXTRA_FEATURES=
+            EXTRA_FEATURES=--features redis-rs
             RUN_ENV=sandbox
           push: true
           tags: ${{ steps.meta-router.outputs.tags }}
@@ -134,6 +134,8 @@ jobs:
           build-args: |
             BINARY=scheduler
             SCHEDULER_FLOW=consumer
+            EXTRA_FEATURES=--features redis-rs
+            RUN_ENV=sandbox
           push: true
           tags: ${{ steps.meta-scheduler.outputs.tags }}
           labels: ${{ steps.meta-scheduler.outputs.labels }}

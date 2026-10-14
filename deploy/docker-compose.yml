@@ -31,7 +31,7 @@ x-router-build: &router-build
   context: ../upstream/hyperswitch
   dockerfile: Dockerfile
   args:
-    EXTRA_FEATURES: ${HTP_ROUTER_EXTRA_FEATURES:-}
+    EXTRA_FEATURES: ${HTP_ROUTER_EXTRA_FEATURES:---features redis-rs}
     RUN_ENV: ${HTP_RUN_ENV:-sandbox}
 
 volumes:
@@ -123,7 +123,7 @@ services:
       <<: *router-build
       args:
         BINARY: router
-        EXTRA_FEATURES: ${HTP_ROUTER_EXTRA_FEATURES:-}
+        EXTRA_FEATURES: ${HTP_ROUTER_EXTRA_FEATURES:---features redis-rs}
         RUN_ENV: ${HTP_RUN_ENV:-sandbox}
     restart: unless-stopped
     command: /local/bin/router -f /local/config/docker_compose.toml
@@ -157,6 +157,8 @@ services:
       args:
         BINARY: scheduler
         SCHEDULER_FLOW: consumer
+        EXTRA_FEATURES: ${HTP_ROUTER_EXTRA_FEATURES:---features redis-rs}
+        RUN_ENV: ${HTP_RUN_ENV:-sandbox}
     profiles: [scheduler]
     restart: unless-stopped
     command: /local/bin/scheduler -f /local/config/docker_compose.toml
