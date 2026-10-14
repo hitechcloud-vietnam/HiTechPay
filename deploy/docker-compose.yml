@@ -1,7 +1,9 @@
 # HiTechPay Platform — full local / single-host stack.
 #
-# Images are built from the patched upstream submodules (run scripts/bootstrap.sh first):
+# Images are built from the patched upstream submodules:
+#   scripts/bootstrap.sh --core && scripts/prepare-docker-context.sh
 #   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+# Full guide: docs/trien-khai/02-docker-compose.md
 #
 # Endpoints (default ports):
 #   API (router)            http://localhost:8080
@@ -10,6 +12,20 @@
 #   Gateway (nginx, opt.)   http://localhost:80   (profile: gateway)
 
 name: hitechpay
+
+# Router/scheduler settings shared by every Rust service (overrides config/docker_compose.toml)
+x-router-env: &router-env
+  ROUTER__MASTER_DATABASE__USERNAME: ${HTP_DB_USER:-db_user}
+  ROUTER__MASTER_DATABASE__PASSWORD: ${HTP_DB_PASSWORD:-db_pass}
+  ROUTER__MASTER_DATABASE__DBNAME: ${HTP_DB_NAME:-hyperswitch_db}
+  ROUTER__REPLICA_DATABASE__USERNAME: ${HTP_DB_USER:-db_user}
+  ROUTER__REPLICA_DATABASE__PASSWORD: ${HTP_DB_PASSWORD:-db_pass}
+  ROUTER__REPLICA_DATABASE__DBNAME: ${HTP_DB_NAME:-hyperswitch_db}
+  ROUTER__SERVER__BASE_URL: ${HTP_API_PUBLIC_URL:-http://localhost:8080}
+  ROUTER__USER__BASE_URL: ${HTP_DASHBOARD_PUBLIC_URL:-http://localhost:9000}
+  ROUTER__SECRETS__ADMIN_API_KEY: ${HTP_ADMIN_API_KEY:-test_admin}
+  ROUTER__SECRETS__JWT_SECRET: ${HTP_JWT_SECRET:-change-me-jwt-secret}
+  ROUTER__SECRETS__MASTER_ENC_KEY: ${HTP_MASTER_ENC_KEY:-73ad7bbbbc640c845a150f67d058b279849370cd2c1f3c67c4dd6c869213e13a}
 
 x-router-build: &router-build
   context: ../upstream/hyperswitch
@@ -117,11 +133,7 @@ services:
     volumes:
       - ../upstream/hyperswitch/config:/local/config:ro
     environment:
-      ROUTER__SERVER__BASE_URL: ${HTP_API_PUBLIC_URL:-http://localhost:8080}
-      ROUTER__USER__BASE_URL: ${HTP_DASHBOARD_PUBLIC_URL:-http://localhost:9000}
-      ROUTER__SECRETS__ADMIN_API_KEY: ${HTP_ADMIN_API_KEY:-test_admin}
-      ROUTER__SECRETS__JWT_SECRET: ${HTP_JWT_SECRET:-change-me-jwt-secret}
-      ROUTER__SECRETS__MASTER_ENC_KEY: ${HTP_MASTER_ENC_KEY:-73ad7bbbbc640c845a150f67d058b279849370cd2c1f3c67c4dd6c869213e13a}
+      <<: *router-env
     depends_on:
       pg:
         condition: service_healthy
@@ -152,6 +164,7 @@ services:
     volumes:
       - ../upstream/hyperswitch/config:/local/config:ro
     environment:
+      <<: *router-env
       SCHEDULER_FLOW: consumer
     depends_on:
       router:
@@ -166,6 +179,7 @@ services:
     volumes:
       - ../upstream/hyperswitch/config:/local/config:ro
     environment:
+      <<: *router-env
       SCHEDULER_FLOW: producer
     depends_on:
       scheduler-consumer:
