@@ -1,0 +1,54 @@
+name: Cleanup merged branches
+
+# Deletes remote branches that are fully merged into `main`.
+# Never deletes: main, the repository default branch, wip/* and anything listed in `keep`.
+# Run manually (Actions → Cleanup merged branches → Run workflow); `dry_run` lists only.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only list the branches that would be deleted"
+        type: boolean
+        default: true
+      keep:
+        description: "Extra branches to keep (space separated)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Delete merged branches
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          KEEP: ${{ inputs.keep }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          protected=" main ${DEFAULT_BRANCH} ${KEEP} "
+          deleted=0
+          for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin); do
+            branch="${ref#origin/}"
+            [[ "$branch" == "HEAD" || "$branch" == "origin" ]] && continue
+            [[ "$protected" == *" $branch "* ]] && { echo "keep (protected): $branch"; continue; }
+            [[ "$branch" == wip/* ]] && { echo "keep (wip): $branch"; continue; }
+            if git merge-base --is-ancestor "origin/$branch" origin/main; then
+              if [[ "$DRY_RUN" == "true" ]]; then
+                echo "would delete: $branch"
+              else
+                git push origin --delete "$branch" && echo "deleted: $branch"
+              fi
+              deleted=$((deleted + 1))
+            else
+              echo "keep (not merged into main): $branch"
+            fi
+          done
+          echo "merged branches handled: $deleted" >> "$GITHUB_STEP_SUMMARY"
