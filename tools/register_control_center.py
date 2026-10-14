@@ -70,6 +70,30 @@ CONNECTORS = [
         "#F7931E",
         "Pay2S",
     ),
+    (
+        "onepay",
+        "ONEPAY",
+        "OnePay",
+        "OnePay is a Vietnamese payment gateway with hosted pages for domestic ATM cards and internet banking (NAPAS) and international Visa, Mastercard, JCB and Amex cards.",
+        "#E30613",
+        "OnePay",
+    ),
+    (
+        "appotapay",
+        "APPOTAPAY",
+        "AppotaPay",
+        "AppotaPay is a licensed Vietnamese payment intermediary accepting domestic ATM cards, international cards, VietQR and e-wallets such as MoMo through a hosted payment page.",
+        "#00A651",
+        "Appota",
+    ),
+    (
+        "ninepay",
+        "NINEPAY",
+        "9Pay",
+        "9Pay is a Vietnamese payment gateway and e-wallet accepting domestic ATM cards, international cards and VietQR bank transfers on its hosted portal.",
+        "#1E3A8A",
+        "9Pay",
+    ),
 ]
 
 

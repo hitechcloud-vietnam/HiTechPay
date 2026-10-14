@@ -3,7 +3,7 @@
 **Cổng thanh toán hợp nhất cho doanh nghiệp Việt Nam** — một bản white-label của
 [Juspay Hyperswitch](https://github.com/juspay/hyperswitch) (payment orchestrator mã nguồn mở,
 Apache-2.0), bổ sung các cổng thanh toán Việt Nam: **MoMo, VNPAY, ZaloPay, Viettel Money,
-payOS, SePay, Pay2S**.
+payOS, SePay, Pay2S, OnePay, AppotaPay, 9Pay**.
 
 Phát triển bởi Pho Tue Software Solutions JSC & HiTechCloud Vietnam.
 
@@ -18,8 +18,8 @@ Phát triển bởi Pho Tue Software Solutions JSC & HiTechCloud Vietnam.
 
 | Thành phần | Upstream (submodule) | HiTechPay thay đổi |
 |---|---|---|
-| Payment router (API, routing, vault, webhooks) | `upstream/hyperswitch` @ v1.127.0 | 7 connector Việt Nam, `vn_utils` (VietQR, HMAC, giờ GMT+7), 2 hook lõi cho cổng redirect / chuyển khoản |
-| Merchant dashboard | `upstream/hyperswitch-control-center` @ v1.38.9 | Thương hiệu HiTechPay, 7 connector mới, euclid WASM build lại |
+| Payment router (API, routing, vault, webhooks) | `upstream/hyperswitch` @ v1.127.0 | 10 connector Việt Nam, `vn_utils` (VietQR, HMAC, giờ GMT+7), 2 hook lõi cho cổng redirect / chuyển khoản |
+| Merchant dashboard | `upstream/hyperswitch-control-center` @ v1.38.9 | Thương hiệu HiTechPay, 10 connector mới, euclid WASM build lại |
 | Checkout web SDK | `upstream/hyperswitch-web` @ v0.134.0 | Ngôn ngữ tiếng Việt, VietQR / MoMo ATM / ngân hàng nội địa, thương hiệu |
 | Mobile SDK (React Native core, Android, iOS, RN wrapper) | `hyperswitch-client-core`, `hyperswitch-sdk-android`, `hyperswitch-sdk-ios`, `react-native-hyperswitch` | tham chiếu (chưa vá) |
 | Card vault, encryption service | `hyperswitch-card-vault`, `hyperswitch-encryption-service` | tham chiếu |
@@ -38,6 +38,9 @@ Phát triển bởi Pho Tue Software Solutions JSC & HiTechCloud Vietnam.
 | `payos` | `viet_qr` | API payment-requests → checkout + VietQR | API get | ❌ (không có API) | chữ ký HMAC-SHA256 |
 | `sepay` | `viet_qr` (chuyển khoản) | VietQR tạo cục bộ, mã đối soát `HTP…` | API transactions | ❌ | `Authorization: Apikey` |
 | `pay2s` | `viet_qr` (chuyển khoản) | VietQR tạo cục bộ, mã đối soát `HTP…` | từ webhook | ❌ | `Authorization: Bearer` |
+| `onepay` (beta) | `local_bank_redirect` (nội địa NAPAS), card_redirect/`card_redirect` (quốc tế) | URL `vpc_*` ký HMAC-SHA256 (cục bộ) | QueryDR | ✅ API | IPN `vpc_SecureHash` |
+| `appotapay` (beta) | `local_bank_redirect`, `card_redirect`, `viet_qr`, wallet/`momo` | API v2 orders/payment (JWT) → redirect | API transaction | ✅ API + refund status | IPN HMAC-SHA256 |
+| `ninepay` (beta) | `local_bank_redirect`, `card_redirect`, `viet_qr` | portal base64 JSON + HMAC-SHA256 (cục bộ) | API inquire | ✅ API | IPN checksum SHA256 |
 
 Chi tiết cấu hình, ánh xạ khoá và giới hạn: [docs/connectors-vn.md](docs/connectors-vn.md).
 

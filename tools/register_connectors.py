@@ -19,7 +19,21 @@ REF_CAMEL = "Paystack"
 
 # name, Camel, sandbox base_url, production base_url, secondary(sandbox), secondary(prod)
 CONNECTORS = [
+    (
+        "appotapay",
+        "Appotapay",
+        "https://payment.dev.appotapay.com/",
+        "https://payment.appotapay.com/",
+        None,
+        None,
+    ),
     ("momo", "Momo", "https://test-payment.momo.vn/", "https://payment.momo.vn/", None, None),
+    # 9Pay: base_url is the API endpoint; the portal (payment page) uses the same host and is
+    # chosen from the connector account metadata / test mode.
+    ("ninepay", "Ninepay", "https://sand-payment.9pay.vn/", "https://payment.9pay.vn/", None, None),
+    # OnePay: base_url hosts the QueryDR / refund API; the payment page (paygate) is chosen from
+    # the connector account metadata / test mode.
+    ("onepay", "Onepay", "https://mtf.onepay.vn/", "https://onepay.vn/", None, None),
     ("pay2s", "Pay2s", "https://my.pay2s.vn/", "https://my.pay2s.vn/", None, None),
     ("payos", "Payos", "https://api-merchant.payos.vn/", "https://api-merchant.payos.vn/", None, None),
     ("sepay", "Sepay", "https://my.sepay.vn/", "https://my.sepay.vn/", None, None),
@@ -45,6 +59,21 @@ CONNECTORS = [
 ]
 
 PM_FILTERS = {
+    "appotapay": [
+        'local_bank_redirect = { country = "VN", currency = "VND" }',
+        'card_redirect = { country = "VN", currency = "VND" }',
+        'viet_qr = { country = "VN", currency = "VND" }',
+        'momo = { country = "VN", currency = "VND" }',
+    ],
+    "ninepay": [
+        'local_bank_redirect = { country = "VN", currency = "VND" }',
+        'card_redirect = { country = "VN", currency = "VND" }',
+        'viet_qr = { country = "VN", currency = "VND" }',
+    ],
+    "onepay": [
+        'local_bank_redirect = { country = "VN", currency = "VND" }',
+        'card_redirect = { country = "VN", currency = "VND" }',
+    ],
     "momo": [
         'momo = { country = "VN", currency = "VND" }',
         'momo_atm = { country = "VN", currency = "VND" }',
@@ -68,6 +97,49 @@ PM_FILTERS = {
 
 # Dashboard (control center) connector configuration.
 CONNECTOR_TOML = {
+    "appotapay": """[appotapay]
+[[appotapay.bank_redirect]]
+payment_method_type = "local_bank_redirect"
+[[appotapay.card_redirect]]
+payment_method_type = "card_redirect"
+[[appotapay.real_time_payment]]
+payment_method_type = "viet_qr"
+[[appotapay.wallet]]
+payment_method_type = "momo"
+[appotapay.connector_auth.SignatureKey]
+api_key = "Partner Code"
+key1 = "API Key"
+api_secret = "Secret Key"
+[appotapay.connector_webhook_details]
+merchant_secret = "Secret Key"
+""",
+    "ninepay": """[ninepay]
+[[ninepay.bank_redirect]]
+payment_method_type = "local_bank_redirect"
+[[ninepay.card_redirect]]
+payment_method_type = "card_redirect"
+[[ninepay.real_time_payment]]
+payment_method_type = "viet_qr"
+[ninepay.connector_auth.SignatureKey]
+api_key = "Merchant Key"
+key1 = "Secret Key"
+api_secret = "Checksum Key"
+[ninepay.connector_webhook_details]
+merchant_secret = "Checksum Key"
+""",
+    "onepay": """[onepay]
+[[onepay.bank_redirect]]
+payment_method_type = "local_bank_redirect"
+[[onepay.card_redirect]]
+payment_method_type = "card_redirect"
+[onepay.connector_auth.MultiAuthKey]
+api_key = "Merchant ID (vpc_Merchant)"
+key1 = "Access Code (vpc_AccessCode)"
+api_secret = "Hash Secret (hex)"
+key2 = "QueryDR / Refund API user:password"
+[onepay.connector_webhook_details]
+merchant_secret = "Hash Secret (hex)"
+""",
     "momo": """[momo]
 [[momo.wallet]]
 payment_method_type = "momo"
@@ -154,6 +226,9 @@ merchant_secret = "Key2"
 }
 
 SAMPLE_AUTH = {
+    "appotapay": 'api_key = "Partner Code"\nkey1 = "API Key"\napi_secret = "Secret Key"',
+    "ninepay": 'api_key = "Merchant Key"\nkey1 = "Secret Key"\napi_secret = "Checksum Key"',
+    "onepay": 'api_key = "Merchant ID"\nkey1 = "Access Code"\napi_secret = "Hash Secret"\nkey2 = "user:password"',
     "momo": 'api_key = "Partner Code"\nkey1 = "Access Key"\napi_secret = "Secret Key"',
     "pay2s": 'api_key = "API Token"\nkey1 = "Account Number"\napi_secret = "Bank Code"',
     "payos": 'api_key = "Client ID"\nkey1 = "API Key"\napi_secret = "Checksum Key"',
@@ -163,7 +238,10 @@ SAMPLE_AUTH = {
     "zalopay": 'api_key = "App ID"\nkey1 = "Key1"\napi_secret = "Key2"',
 }
 
-AUTH_KIND = {name: ("BodyKey" if name == "vnpay" else "SignatureKey") for name, *_ in CONNECTORS}
+AUTH_KIND = {name: "SignatureKey" for name, *_ in CONNECTORS} | {
+    "vnpay": "BodyKey",
+    "onepay": "MultiAuthKey",
+}
 
 BASE_URL_FILES_SANDBOX = [
     "config/config.example.toml",
