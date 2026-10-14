@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
 Date: Wed, 14 Oct 2026 09:57:06 +0000
-Subject: [PATCH 3/3] feat(branding): white-label payment SDK as HiTechPay
+Subject: [PATCH 3/4] feat(branding): white-label payment SDK as HiTechPay
 
 - page titles of build.html / fullscreenIndexTemplate.html -> HiTechPay
 - "Powered by" sprite symbol (orca.svg #powerd-by-hyper) now renders

@@ -27,8 +27,12 @@ ROUTER__CONNECTORS__ZALOPAY__BASE_URL=https://openapi.zalopay.vn/
 Production base URLs có sẵn trong `config/deployments/production.toml`.
 
 ## Kubernetes
-Dùng chart trong `upstream/hyperswitch-helm`, thay image bằng các image HiTechPay
-(`${HTP_REGISTRY}/router`, `/scheduler`, `/dashboard`, `/checkout-sdk`) build từ compose:
+Dùng chart `hyperswitch-stack` (`upstream/hyperswitch-helm`) với file giá trị
+[`deploy/helm/values-hitechpay.yaml`](../deploy/helm/values-hitechpay.yaml) — hướng dẫn cài đặt:
+[deploy/helm/README.md](../deploy/helm/README.md). Image `ghcr.io/hitechcloud-vietnam/hitechpay-{router,scheduler,dashboard,checkout-sdk}`
+được workflow `.github/workflows/images.yml` build và đẩy lên GHCR (push lên `main`, tag `v*`).
+
+Tự build bằng compose (registry riêng):
 
 ```bash
 docker compose -f deploy/docker-compose.yml build

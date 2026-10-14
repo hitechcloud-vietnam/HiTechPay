@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
 Date: Wed, 14 Oct 2026 08:42:41 +0000
-Subject: [PATCH 2/3] feat(locale): add Vietnamese (vi / vi-VN) locale
+Subject: [PATCH 2/4] feat(locale): add Vietnamese (vi / vi-VN) locale
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_014p7hcqtGKsGWvEUtmq6YEC

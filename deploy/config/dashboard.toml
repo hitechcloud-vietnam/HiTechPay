@@ -1,10 +1,14 @@
-# HiTechPay dashboard runtime config (mounted into the control center container).
-# For production, point api_url / sdk_url at your public domains (see brand.json).
+# HiTechPay dashboard runtime config (mounted into the dashboard container).
+# Generated from upstream/hyperswitch-control-center/config/config.toml (patched).
+# For production, point api_url / sdk_url at your public domains (see branding/brand.json).
 [default.endpoints]
 api_url="http://localhost:8080"
+# Full base URL for endpoints on the OLAP routing allowlist; empty falls back to api_url.
+olap_url=""
 sdk_url="http://localhost:9050/HyperLoader.js"
 apple_pay_certificate_url=""
-dss_certificate_url=""
+dss_certificate_us_url=""
+dss_certificate_eu_url=""
 logo_url="/assets/hitechpay/Light/logo.svg"
 favicon_url="/assets/hitechpay/favicon.svg"
 recon_iframe_url=""
@@ -12,11 +16,12 @@ hypersense_url=""
 mixpanel_token=""
 agreement_url=""
 agreement_version=""
-clarity_base_url=""
 dynamo_simulation_template_url=""
-
 [default.features]
 branding=false
+connector_clone=false
+send_v1_dummy_api_key_header=false
+cug_user=false
 mixpanel=false
 test_live_toggle=false
 is_live_mode=false
@@ -25,7 +30,7 @@ x_feature_route=false
 compliance_certificate=false
 force_cookies=false
 audit_trail=true
-granularity=false
+granularity=true
 maintenance_alert=""
 down_time=false
 email=false
@@ -45,49 +50,86 @@ threeds_authenticator=true
 frm=true
 pm_authentication_processor=true
 tax_processor=true
+billing_processor=true
+vault_processor=true
+surcharge_processor=true
 dispute_analytics=false
 authentication_analytics=false
-performance_monitor=false
 new_analytics=false
 new_analytics_smart_retries=false
 new_analytics_refunds=false
 new_analytics_filters=false
 routing_analytics=false
-threeds_exemption=false
+threeds_exemption=true
 surcharge=true
 dispute_evidence_upload=false
-recon=true
+recon=false
 recon_v2=false
-payment_settings_v2=false
 custom_webhook_headers=true
 tenant_user=false
-google_pay_decryption_flow=false
+google_pay_direct_flow=false
 sample_data_analytics=false
-acquirer_config_settings=false
+acquirer_config_settings=true
+payment_link_theme_configurator=false
+payment_link_operations=false
+allow_connected_merchants=false
+network_tokenization=false
+vault_psp_tokenization=false
+hierarchical_configurations=false
 dev_click_to_pay=true
 dev_alt_payment_methods=false
-dev_modularity_v2=false
+dev_modularity_v2=true
 dev_recon_v2_product=false
 dev_recovery_v2_product=false
 dev_vault_v2_product=false
 dev_hypersense_v2_product=false
 dev_intelligent_routing_v2=false
 dev_orchestration_v2_product=false
-dev_debit_routing=false
-dev_webhooks=false
+dev_sidebar_v2=true
+dev_debit_routing=true
+dev_webhooks=true
+dev_blocklist=false
+recon_engine_permissions=true
 dev_recon_engine_v1=false
+dev_recon_engine_pipelines=false
 dev_ai_chat_bot=false
-dev_roles_v2=false
+dev_launch_sage=false
+dev_roles_v2=true
+dev_customer=true
+dev_accept_invite=true
+dev_theme=false
+dev_opensearch=false
+dev_advanced_payments_view=false
+dev_vault=true
+dev_users=true
+dev_blend_enabled=true
+dev_sort_enabled=true
+dev_saved_views=false
+dev_clickhouse_aggregate=false
+dev_superposition=false
+[default.connector_list_for_live]
+paymentProcessors = []
+threedsAuthProcessors = []
+payoutProcessors = []
+vaultProcessors = []
+pmAuthProcessors = []
+billingProcessors = []
+surchargeProcessors = []
+taxProcessors = []
 
+[default.connector_clone]
+paymentProcessors = ["peachpayments"]
+[default.superposition_configs]
+organization_id=""
+workspace=""
 [default.merchant_config]
-[default.merchant_config.whitelist]
-[default.merchant_config.whitelist.dev_recon_engine_v1]
+[default.merchant_config.allowlist]
+[default.merchant_config.allowlist.dev_recon_engine_v1]
 org_ids=[]
 merchant_ids=[]
 profile_ids=[]
-
-[default.merchant_config.blacklist]
-[default.merchant_config.blacklist.new_analytics]
+[default.merchant_config.denylist]
+[default.merchant_config.denylist.new_analytics]
 org_ids=[]
 merchant_ids=[]
 profile_ids=[]

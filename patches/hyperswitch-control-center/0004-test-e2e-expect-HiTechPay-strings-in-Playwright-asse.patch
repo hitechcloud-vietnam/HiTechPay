@@ -1,0 +1,121 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 10:13:32 +0000
+Subject: [PATCH 4/4] test(e2e): expect HiTechPay strings in Playwright
+ assertions
+
+The white-label (tools/whitelabel.py) rebrands user-visible dashboard
+strings, so the e2e assertions now expect what the UI renders:
+- sign-up header "Welcome to HiTechPay"
+- maintenance screen "HiTechPay Dashboard is under maintenance"
+- production-access placeholder "Eg: HiTechPay Pvt Ltd"
+- "HiTechPay Error Description" payment attribute
+- manual-review banner "HiTechPay received an anomalous response ..."
+- connector label help text "... on your HiTechPay dashboard ..."
+
+E-mail subjects (entity_name from the router config), input values and
+demo identifiers are unchanged.
+
+diff --git a/playwright-tests/e2e/1-auth/auth.spec.ts b/playwright-tests/e2e/1-auth/auth.spec.ts
+index 83bfcd9..cfc820b 100644
+--- a/playwright-tests/e2e/1-auth/auth.spec.ts
++++ b/playwright-tests/e2e/1-auth/auth.spec.ts
+@@ -24,7 +24,7 @@ test.describe.serial("Sign up", () => {
+ 
+     await visitSignupPage(page);
+ 
+-    await expect(signupPage.headerText).toContainText("Welcome to Hyperswitch");
++    await expect(signupPage.headerText).toContainText("Welcome to HiTechPay");
+     await expect(signupPage.signInLink).toContainText("Sign in");
+     await expect(signupPage.emailInput).toHaveAttribute(
+       "placeholder",
+@@ -206,7 +206,7 @@ test.describe.serial("Sign in", () => {
+     await signinPage.signUpLink.click();
+     await expect(page).toHaveURL(/.*register/);
+ 
+-    await expect(signupPage.headerText).toContainText("Welcome to Hyperswitch");
++    await expect(signupPage.headerText).toContainText("Welcome to HiTechPay");
+     await signupPage.signInLink.click();
+ 
+     await expect(page).toHaveURL(/.*login/);
+@@ -1043,13 +1043,13 @@ test.describe("Maintenance mode and Down time", () => {
+     await page.goto("/");
+ 
+     await expect(
+-      page.getByText("Hyperswitch Control Center is under maintenance", {
++      page.getByText("HiTechPay Dashboard is under maintenance", {
+         exact: true,
+       }),
+     ).toBeVisible();
+     await expect(
+       page.getByText(
+-        "Hyperswitch Control Center is under maintenance will be back in an hour",
++        "HiTechPay Dashboard is under maintenance will be back in an hour",
+       ),
+     ).toBeVisible();
+     await expect(page.getByText("Hey there, Welcome back!")).not.toBeVisible();
+diff --git a/playwright-tests/e2e/3-operations/paymentOperations.spec.ts b/playwright-tests/e2e/3-operations/paymentOperations.spec.ts
+index c49c804..4361588 100644
+--- a/playwright-tests/e2e/3-operations/paymentOperations.spec.ts
++++ b/playwright-tests/e2e/3-operations/paymentOperations.spec.ts
+@@ -2343,7 +2343,7 @@ test.describe("Payment Operations", () => {
+         "Extended Auth Applied": "false",
+         "Extended Auth Last Applied At": "-",
+         "Request Extended Auth": "false",
+-        "Hyperswitch Error Description": "N/A",
++        "HiTechPay Error Description": "N/A",
+       })) {
+         await expect(paymentOperations.dataLabel(label).first()).toContainText(
+           value,
+diff --git a/playwright-tests/e2e/4-connectors/payinConnector.spec.ts b/playwright-tests/e2e/4-connectors/payinConnector.spec.ts
+index de0c654..85eda85 100644
+--- a/playwright-tests/e2e/4-connectors/payinConnector.spec.ts
++++ b/playwright-tests/e2e/4-connectors/payinConnector.spec.ts
+@@ -384,7 +384,7 @@ test.describe("Payin Connector tests", () => {
+     await expect(
+       page
+         .getByText(
+-          /This is an unique label you can generate and pass in order to identify this connector account on your Hyperswitch dashboard and reports. Eg: if your profile label is 'default', connector label can be 'stripe_default'/i,
++          /This is an unique label you can generate and pass in order to identify this connector account on your HiTechPay dashboard and reports. Eg: if your profile label is 'default', connector label can be 'stripe_default'/i,
+         )
+         .first(),
+     ).toBeVisible({
+diff --git a/playwright-tests/support/pages/homepage/HomePage.ts b/playwright-tests/support/pages/homepage/HomePage.ts
+index 81390ba..6942af3 100644
+--- a/playwright-tests/support/pages/homepage/HomePage.ts
++++ b/playwright-tests/support/pages/homepage/HomePage.ts
+@@ -8,7 +8,7 @@ export class HomePage {
+   }
+ 
+   get enterMerchantName(): Locator {
+-    return this.page.getByRole("textbox", { name: "Eg: HyperSwitch Pvt Ltd" });
++    return this.page.getByRole("textbox", { name: "Eg: HiTechPay Pvt Ltd" });
+   }
+ 
+   get onboardingSubmitButton(): Locator {
+diff --git a/playwright-tests/support/pages/homepage/ProductionAccessPage.ts b/playwright-tests/support/pages/homepage/ProductionAccessPage.ts
+index 636d384..c1900db 100644
+--- a/playwright-tests/support/pages/homepage/ProductionAccessPage.ts
++++ b/playwright-tests/support/pages/homepage/ProductionAccessPage.ts
+@@ -16,7 +16,7 @@ export class ProductionAccessPage {
+   }
+ 
+   get legalBusinessNameInput(): Locator {
+-    return this.page.getByRole("textbox", { name: "Eg: HyperSwitch Pvt Ltd" });
++    return this.page.getByRole("textbox", { name: "Eg: HiTechPay Pvt Ltd" });
+   }
+ 
+   get selectCountryButton(): Locator {
+diff --git a/playwright-tests/support/pages/operations/PaymentOperations.ts b/playwright-tests/support/pages/operations/PaymentOperations.ts
+index 6edd79d..3bb7599 100644
+--- a/playwright-tests/support/pages/operations/PaymentOperations.ts
++++ b/playwright-tests/support/pages/operations/PaymentOperations.ts
+@@ -384,7 +384,7 @@ export class PaymentOperations {
+ 
+   get manualAttentionDescription(): Locator {
+     return this.page.getByText(
+-      "Hyperswitch received an anomalous response from the connector for this payment. Review it and update the status to Succeeded or Failed.",
++      "HiTechPay received an anomalous response from the connector for this payment. Review it and update the status to Succeeded or Failed.",
+       { exact: true },
+     );
+   }
