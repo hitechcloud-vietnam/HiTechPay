@@ -1,0 +1,35 @@
+{
+  "name": "HiTechPay",
+  "product_name": "HiTechPay Platform",
+  "dashboard_name": "HiTechPay Dashboard",
+  "tagline": "Cổng thanh toán hợp nhất cho doanh nghiệp Việt Nam",
+  "company": "Pho Tue Software Solutions JSC & HiTechCloud Vietnam",
+  "website": "https://hitechpay.vn",
+  "support_email": "support@hitechpay.vn",
+  "default_locale": "vi",
+  "default_currency": "VND",
+  "default_country": "VN",
+  "domains": {
+    "api": "https://api.hitechpay.vn",
+    "dashboard": "https://dashboard.hitechpay.vn",
+    "checkout_sdk": "https://checkout.hitechpay.vn",
+    "payment_link": "https://pay.hitechpay.vn"
+  },
+  "colors": {
+    "primary": "#0B5FFF",
+    "primary_hover": "#0047D1",
+    "accent": "#00B894",
+    "sidebar_background": "#0A1F44",
+    "sidebar_text": "#C9D4EA",
+    "sidebar_text_active": "#FFFFFF",
+    "secondary_background": "#F1F4FA",
+    "secondary_text": "#3B4A63",
+    "secondary_hover": "#E3E9F5"
+  },
+  "assets": {
+    "logo": "assets/logo.svg",
+    "logo_dark": "assets/logo-dark.svg",
+    "icon": "assets/icon.svg",
+    "favicon": "assets/favicon.svg"
+  }
+}

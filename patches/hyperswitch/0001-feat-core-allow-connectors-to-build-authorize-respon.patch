@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 08:35:30 +0000
+Subject: [PATCH 1/4] feat(core): allow connectors to build authorize response
+ locally
+
+Adds ConnectorSpecifications::should_build_authorize_response_locally so
+redirect gateways that sign the payment URL on the merchant side (VNPay,
+Viettel Money) and bank-transfer QR gateways (SePay, Pay2S) can produce
+the authorize response without an outbound HTTP call.
+
+diff --git a/crates/hyperswitch_interfaces/src/api.rs b/crates/hyperswitch_interfaces/src/api.rs
+index 22f8caa..4d68e4f 100644
+--- a/crates/hyperswitch_interfaces/src/api.rs
++++ b/crates/hyperswitch_interfaces/src/api.rs
+@@ -663,6 +663,14 @@ pub trait ConnectorSpecifications {
+         false
+     }
+ 
++    /// Check if the connector builds the authorize response locally, without calling the
++    /// connector (e.g. redirect gateways where the payment URL is signed by the merchant,
++    /// or bank-transfer QR gateways). When `true`, the authorize flow invokes
++    /// `handle_response` with an empty body instead of sending a request.
++    fn should_build_authorize_response_locally(&self) -> bool {
++        false
++    }
++
+     /// Returns the webhook registration plan for this connector.
+     /// Given the requested scope returns a list of (identifier, webhook_url)` tuples. Each tuple corresponds to one connector integration call.
+     fn get_webhook_registration_plan(
+diff --git a/crates/hyperswitch_interfaces/src/connector_integration_interface.rs b/crates/hyperswitch_interfaces/src/connector_integration_interface.rs
+index 03fad67..e774003 100644
+--- a/crates/hyperswitch_interfaces/src/connector_integration_interface.rs
++++ b/crates/hyperswitch_interfaces/src/connector_integration_interface.rs
+@@ -880,6 +880,13 @@ impl ConnectorSpecifications for ConnectorEnum {
+         }
+     }
+ 
++    fn should_build_authorize_response_locally(&self) -> bool {
++        match self {
++            Self::Old(connector) => connector.should_build_authorize_response_locally(),
++            Self::New(connector) => connector.should_build_authorize_response_locally(),
++        }
++    }
++
+     fn get_webhook_registration_plan(
+         &self,
+         scope: &Scope,
+diff --git a/crates/router/src/core/payments/flows/authorize_flow.rs b/crates/router/src/core/payments/flows/authorize_flow.rs
+index 6ecbc2c..4023d58 100644
+--- a/crates/router/src/core/payments/flows/authorize_flow.rs
++++ b/crates/router/src/core/payments/flows/authorize_flow.rs
+@@ -241,11 +241,25 @@ impl Feature<api::Authorize, types::PaymentsAuthorizeData> for types::PaymentsAu
+         if self.should_proceed_with_authorize() {
+             self.decide_authentication_type();
+             logger::debug!(auth_type=?self.auth_type);
++            // HiTechPay: connectors such as VNPay / Viettel Money sign the payment URL locally
++            // and bank-transfer QR connectors (SePay / Pay2S) render a VietQR without an API
++            // call, so the authorize response is built without sending a request.
++            let authorize_call_connector_action = if matches!(
++                call_connector_action,
++                payments::CallConnectorAction::Trigger
++            ) && connector
++                .connector
++                .should_build_authorize_response_locally()
++            {
++                payments::CallConnectorAction::HandleResponseWithoutBuildRequest
++            } else {
++                call_connector_action.clone()
++            };
+             let mut auth_router_data = gateway::execute_payment_gateway(
+                 state,
+                 connector_integration,
+                 &self,
+-                call_connector_action.clone(),
++                authorize_call_connector_action,
+                 connector_request,
+                 return_raw_connector_response,
+                 gateway_context.clone(),

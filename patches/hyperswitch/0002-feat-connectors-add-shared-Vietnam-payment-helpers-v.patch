@@ -1,0 +1,460 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 08:42:14 +0000
+Subject: [PATCH 2/4] feat(connectors): add shared Vietnam payment helpers
+ (vn_utils)
+
+
+diff --git a/crates/hyperswitch_connectors/src/lib.rs b/crates/hyperswitch_connectors/src/lib.rs
+index 8e60c7c..309b23c 100644
+--- a/crates/hyperswitch_connectors/src/lib.rs
++++ b/crates/hyperswitch_connectors/src/lib.rs
+@@ -8,3 +8,4 @@ pub mod default_implementations_v2;
+ pub mod metrics;
+ pub mod types;
+ pub mod utils;
++pub mod vn_utils;
+diff --git a/crates/hyperswitch_connectors/src/vn_utils.rs b/crates/hyperswitch_connectors/src/vn_utils.rs
+new file mode 100644
+index 0000000..a1280d9
+--- /dev/null
++++ b/crates/hyperswitch_connectors/src/vn_utils.rs
+@@ -0,0 +1,438 @@
++//! Shared helpers for HiTechPay Vietnamese connectors (MoMo, VNPay, ZaloPay, Viettel Money,
++//! PayOS, SePay, Pay2S).
++//!
++//! * Vietnam local time (GMT+7) formatting used by most VN gateways
++//! * HMAC signing helpers
++//! * Payment memo / transfer-code generation and extraction for bank transfer reconciliation
++//! * NAPAS VietQR (EMVCo) payload builder with CRC16-CCITT
++
++use api_models::payments::QrCodeInformation;
++use base64::Engine;
++use common_utils::{
++    crypto::{self, SignMessage},
++    ext_traits::Encode,
++};
++use error_stack::ResultExt;
++use hyperswitch_interfaces::errors;
++use sha2::Digest;
++use time::{OffsetDateTime, UtcOffset};
++
++use crate::utils::QrImage;
++
++/// Vietnam standard time offset (GMT+7)
++pub const VN_UTC_OFFSET_HOURS: i8 = 7;
++
++/// Prefix of HiTechPay generated bank-transfer codes, e.g. `HTP1A2B3C4D5E6F`
++pub const TRANSFER_CODE_PREFIX: &str = "HTP";
++
++const TRANSFER_CODE_HASH_LEN: usize = 12;
++
++/// Current time in Vietnam (GMT+7)
++pub fn now_vn() -> OffsetDateTime {
++    let offset = UtcOffset::from_hms(VN_UTC_OFFSET_HOURS, 0, 0).unwrap_or(UtcOffset::UTC);
++    OffsetDateTime::now_utc().to_offset(offset)
++}
++
++/// Convert a time to Vietnam time (GMT+7)
++pub fn to_vn(datetime: OffsetDateTime) -> OffsetDateTime {
++    let offset = UtcOffset::from_hms(VN_UTC_OFFSET_HOURS, 0, 0).unwrap_or(UtcOffset::UTC);
++    datetime.to_offset(offset)
++}
++
++/// `yyyyMMddHHmmss`, used by VNPay
++pub fn format_yyyymmddhhmmss(datetime: OffsetDateTime) -> String {
++    format!(
++        "{:04}{:02}{:02}{:02}{:02}{:02}",
++        datetime.year(),
++        u8::from(datetime.month()),
++        datetime.day(),
++        datetime.hour(),
++        datetime.minute(),
++        datetime.second()
++    )
++}
++
++/// `yyMMdd`, used by ZaloPay `app_trans_id` / `m_refund_id`
++pub fn format_yymmdd(datetime: OffsetDateTime) -> String {
++    format!(
++        "{:02}{:02}{:02}",
++        datetime.year().rem_euclid(100),
++        u8::from(datetime.month()),
++        datetime.day()
++    )
++}
++
++/// Resolve the hosted payment page URL of a redirect gateway (VNPay, Viettel Money).
++///
++/// Order of precedence:
++/// 1. `payment_url` in the connector account metadata
++/// 2. `environment` in the connector account metadata (`production`/`live` or `sandbox`/`test`)
++/// 3. the connector account `test_mode` flag (`Some(false)` → production, otherwise sandbox)
++pub fn resolve_hosted_payment_url(
++    connector_meta_data: Option<&hyperswitch_masking::Secret<serde_json::Value>>,
++    test_mode: Option<bool>,
++    sandbox_url: &str,
++    production_url: &str,
++) -> String {
++    use hyperswitch_masking::PeekInterface;
++    let metadata = connector_meta_data.map(|meta| meta.peek().clone());
++    let get = |key: &str| {
++        metadata
++            .as_ref()
++            .and_then(|meta| meta.get(key))
++            .and_then(|value| value.as_str())
++            .map(|value| value.trim().to_string())
++            .filter(|value| !value.is_empty())
++    };
++    if let Some(url) = get("payment_url") {
++        return url;
++    }
++    let is_production = match get("environment").map(|env| env.to_ascii_lowercase()) {
++        Some(env) if env == "production" || env == "live" || env == "prod" => true,
++        Some(_) => false,
++        None => test_mode == Some(false),
++    };
++    if is_production {
++        production_url.to_string()
++    } else {
++        sandbox_url.to_string()
++    }
++}
++
++/// Lower-case hex HMAC-SHA256
++pub fn hmac_sha256_hex(
++    key: &str,
++    message: &str,
++) -> Result<String, error_stack::Report<errors::ConnectorError>> {
++    crypto::HmacSha256
++        .sign_message(key.as_bytes(), message.as_bytes())
++        .map(hex::encode)
++        .change_context(errors::ConnectorError::RequestEncodingFailed)
++}
++
++/// Lower-case hex HMAC-SHA512
++pub fn hmac_sha512_hex(
++    key: &str,
++    message: &str,
++) -> Result<String, error_stack::Report<errors::ConnectorError>> {
++    crypto::HmacSha512
++        .sign_message(key.as_bytes(), message.as_bytes())
++        .map(hex::encode)
++        .change_context(errors::ConnectorError::RequestEncodingFailed)
++}
++
++/// Base64 HMAC-SHA1
++pub fn hmac_sha1_base64(
++    key: &str,
++    message: &str,
++) -> Result<String, error_stack::Report<errors::ConnectorError>> {
++    crypto::HmacSha1
++        .sign_message(key.as_bytes(), message.as_bytes())
++        .map(|bytes| base64::engine::general_purpose::STANDARD.encode(bytes))
++        .change_context(errors::ConnectorError::RequestEncodingFailed)
++}
++
++/// Constant time string comparison, used for signature checks
++pub fn secure_eq(left: &str, right: &str) -> bool {
++    let left = left.as_bytes();
++    let right = right.as_bytes();
++    if left.len() != right.len() {
++        return false;
++    }
++    left.iter()
++        .zip(right.iter())
++        .fold(0u8, |acc, (a, b)| acc | (a ^ b))
++        == 0
++}
++
++/// Replace Vietnamese diacritics with ASCII and keep only characters accepted by
++/// VN gateways / bank transfer memos (`A-Z a-z 0-9` and space). Truncates to `max_len`.
++pub fn sanitize_memo(input: &str, max_len: usize) -> String {
++    let ascii: String = input.chars().map(strip_vietnamese_diacritic).collect();
++    let cleaned: String = ascii
++        .chars()
++        .map(|c| if c.is_ascii_alphanumeric() { c } else { ' ' })
++        .collect();
++    let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
++    collapsed.chars().take(max_len).collect::<String>().trim().to_string()
++}
++
++fn strip_vietnamese_diacritic(c: char) -> char {
++    const GROUPS: &[(&str, char)] = &[
++        ("àáạảãâầấậẩẫăằắặẳẵ", 'a'),
++        ("ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴ", 'A'),
++        ("èéẹẻẽêềếệểễ", 'e'),
++        ("ÈÉẸẺẼÊỀẾỆỂỄ", 'E'),
++        ("ìíịỉĩ", 'i'),
++        ("ÌÍỊỈĨ", 'I'),
++        ("òóọỏõôồốộổỗơờớợởỡ", 'o'),
++        ("ÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠ", 'O'),
++        ("ùúụủũưừứựửữ", 'u'),
++        ("ÙÚỤỦŨƯỪỨỰỬỮ", 'U'),
++        ("ỳýỵỷỹ", 'y'),
++        ("ỲÝỴỶỸ", 'Y'),
++        ("đ", 'd'),
++        ("Đ", 'D'),
++    ];
++    GROUPS
++        .iter()
++        .find(|(set, _)| set.contains(c))
++        .map(|(_, replacement)| *replacement)
++        .unwrap_or(c)
++}
++
++/// Deterministic, bank-memo-safe transfer code derived from the payment reference.
++/// Example: `HTP4F1C0A9B22D7`
++pub fn transfer_code(reference: &str) -> String {
++    let digest = sha2::Sha256::digest(reference.as_bytes());
++    let hex = hex::encode_upper(digest);
++    format!(
++        "{TRANSFER_CODE_PREFIX}{}",
++        &hex[..TRANSFER_CODE_HASH_LEN]
++    )
++}
++
++/// Find a HiTechPay transfer code inside a free-text bank transfer description.
++/// Banks may strip spaces or lowercase the memo, so matching is case-insensitive.
++pub fn extract_transfer_code(content: &str) -> Option<String> {
++    let upper = content.to_ascii_uppercase();
++    let bytes = upper.as_bytes();
++    let code_len = TRANSFER_CODE_PREFIX.len() + TRANSFER_CODE_HASH_LEN;
++    upper.match_indices(TRANSFER_CODE_PREFIX).find_map(|(idx, _)| {
++        let candidate = bytes.get(idx..idx + code_len)?;
++        let hash_part = &candidate[TRANSFER_CODE_PREFIX.len()..];
++        let is_valid = hash_part
++            .iter()
++            .all(|b| b.is_ascii_digit() || (b'A'..=b'F').contains(b));
++        is_valid.then(|| String::from_utf8_lossy(candidate).to_string())
++    })
++}
++
++/// Resolve a NAPAS bank BIN from a short name, VietQR code or a BIN itself.
++pub fn resolve_bank_bin(bank: &str) -> Option<&'static str> {
++    let key = bank.trim().to_ascii_uppercase().replace([' ', '-', '_'], "");
++    if key.len() == 6 && key.chars().all(|c| c.is_ascii_digit()) {
++        return BANK_BINS
++            .iter()
++            .find(|(bin, _)| *bin == key)
++            .map(|(bin, _)| *bin);
++    }
++    BANK_BINS
++        .iter()
++        .find(|(_, aliases)| aliases.iter().any(|alias| *alias == key))
++        .map(|(bin, _)| *bin)
++}
++
++/// NAPAS member BINs and their common short names (upper-case, no spaces)
++pub const BANK_BINS: &[(&str, &[&str])] = &[
++    ("970405", &["AGRIBANK", "VBA", "AGR"]),
++    ("970407", &["TECHCOMBANK", "TCB"]),
++    ("970415", &["VIETINBANK", "ICB", "CTG"]),
++    ("970416", &["ACB"]),
++    ("970418", &["BIDV"]),
++    ("970422", &["MBBANK", "MB", "MBB"]),
++    ("970423", &["TPBANK", "TPB"]),
++    ("970426", &["MSB", "MARITIMEBANK"]),
++    ("970427", &["VIETABANK", "VAB"]),
++    ("970428", &["NAMABANK", "NAB"]),
++    ("970429", &["SCB"]),
++    ("970430", &["PGBANK", "PGB"]),
++    ("970431", &["EXIMBANK", "EIB"]),
++    ("970432", &["VPBANK", "VPB"]),
++    ("970433", &["VIETBANK", "VIETB"]),
++    ("970436", &["VIETCOMBANK", "VCB"]),
++    ("970437", &["HDBANK", "HDB"]),
++    ("970438", &["BAOVIETBANK", "BVB"]),
++    ("970440", &["SEABANK", "SEAB"]),
++    ("970441", &["VIB"]),
++    ("970443", &["SHB"]),
++    ("970448", &["OCB"]),
++    ("970449", &["LPBANK", "LIENVIETPOSTBANK", "LPB"]),
++    ("970452", &["KIENLONGBANK", "KLB"]),
++    ("970454", &["VIETCAPITALBANK", "BANVIET", "VCCB"]),
++    ("970403", &["SACOMBANK", "STB"]),
++    ("970409", &["BACABANK", "BAB"]),
++    ("970412", &["PVCOMBANK", "PVCB"]),
++    ("970414", &["OCEANBANK", "OJB"]),
++    ("970419", &["NCB"]),
++    ("970424", &["SHINHANBANK", "SHBVN"]),
++    ("970425", &["ABBANK", "ABB"]),
++    ("970434", &["INDOVINABANK", "IVB"]),
++    ("970439", &["PUBLICBANK", "PBVN"]),
++    ("970442", &["HONGLEONG", "HLBVN"]),
++    ("970444", &["CBBANK", "CBB"]),
++    ("970457", &["WOORIBANK", "WVN"]),
++    ("970458", &["UNITEDOVERSEAS", "UOB"]),
++    ("422589", &["CIMB"]),
++    ("546034", &["CAKE"]),
++    ("546035", &["UBANK"]),
++    ("963388", &["TIMO"]),
++];
++
++/// Data required to build a dynamic VietQR (NAPAS 247 "to account" transfer)
++#[derive(Debug, Clone)]
++pub struct VietQrData<'a> {
++    pub bank_bin: &'a str,
++    pub account_number: &'a str,
++    pub amount: Option<i64>,
++    pub memo: Option<&'a str>,
++}
++
++fn tlv(tag: &str, value: &str) -> String {
++    format!("{tag}{:02}{value}", value.len())
++}
++
++/// CRC16/CCITT-FALSE (poly 0x1021, init 0xFFFF), as required by EMVCo QR
++pub fn crc16_ccitt(data: &[u8]) -> u16 {
++    data.iter().fold(0xFFFFu16, |crc, byte| {
++        (0..8).fold(crc ^ (u16::from(*byte) << 8), |crc, _| {
++            if crc & 0x8000 != 0 {
++                (crc << 1) ^ 0x1021
++            } else {
++                crc << 1
++            }
++        })
++    })
++}
++
++/// Build the EMVCo payload string of a VietQR
++pub fn build_vietqr_payload(data: &VietQrData<'_>) -> String {
++    let beneficiary = tlv("00", data.bank_bin) + &tlv("01", data.account_number);
++    let merchant_account =
++        tlv("00", "A000000727") + &tlv("01", &beneficiary) + &tlv("02", "QRIBFTTA");
++    let mut payload = tlv("00", "01");
++    payload += &tlv(
++        "01",
++        if data.amount.is_some() { "12" } else { "11" },
++    );
++    payload += &tlv("38", &merchant_account);
++    payload += &tlv("53", "704");
++    if let Some(amount) = data.amount {
++        payload += &tlv("54", &amount.to_string());
++    }
++    payload += &tlv("58", "VN");
++    if let Some(memo) = data.memo.filter(|memo| !memo.is_empty()) {
++        payload += &tlv("62", &tlv("08", memo));
++    }
++    payload += "6304";
++    let crc = crc16_ccitt(payload.as_bytes());
++    format!("{payload}{crc:04X}")
++}
++
++/// Build the `connector_metadata` JSON for a QR next action (rendered by the SDK).
++pub fn qr_code_metadata(
++    raw_qr_data: String,
++    qr_code_url: Option<url::Url>,
++    display_to_timestamp: Option<i64>,
++) -> Result<serde_json::Value, error_stack::Report<errors::ConnectorError>> {
++    let image = QrImage::new_from_data(raw_qr_data.clone())
++        .change_context(errors::ConnectorError::ResponseHandlingFailed)?;
++    let image_data_url = url::Url::parse(image.data.as_str())
++        .change_context(errors::ConnectorError::ResponseHandlingFailed)?;
++    QrCodeInformation::QrCodeUrl {
++        image_data_url,
++        qr_code_url,
++        display_to_timestamp,
++        expiry_type: None,
++        raw_qr_data: Some(raw_qr_data),
++    }
++    .encode_to_value()
++    .change_context(errors::ConnectorError::ResponseHandlingFailed)
++}
++
++#[cfg(test)]
++#[allow(clippy::unwrap_used)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn crc16_matches_reference_vector() {
++        // CRC-16/CCITT-FALSE check value
++        assert_eq!(crc16_ccitt(b"123456789"), 0x29B1);
++    }
++
++    #[test]
++    fn vietqr_payload_is_well_formed() {
++        let payload = build_vietqr_payload(&VietQrData {
++            bank_bin: "970422",
++            account_number: "0123456789",
++            amount: Some(150000),
++            memo: Some("HTP4F1C0A9B22D7"),
++        });
++        assert!(payload.starts_with("000201010212"));
++        assert!(payload.contains("0010A000000727"));
++        assert!(payload.contains("0006970422"));
++        assert!(payload.contains("01100123456789"));
++        assert!(payload.contains("5303704"));
++        assert!(payload.contains("5406150000"));
++        assert!(payload.contains("5802VN"));
++        assert!(payload.contains("0815HTP4F1C0A9B22D7"));
++        let (body, crc) = payload.split_at(payload.len() - 4);
++        assert_eq!(format!("{:04X}", crc16_ccitt(body.as_bytes())), crc);
++    }
++
++    #[test]
++    fn transfer_code_roundtrip() {
++        let code = transfer_code("pay_abc_1");
++        assert_eq!(code.len(), 15);
++        let memo = format!("ck {} thanh toan don hang", code.to_lowercase());
++        assert_eq!(extract_transfer_code(&memo), Some(code));
++        assert_eq!(extract_transfer_code("HTPXYZ no code"), None);
++    }
++
++    #[test]
++    fn sanitize_vietnamese() {
++        assert_eq!(
++            sanitize_memo("Thanh toán đơn hàng #123 - Phở Tuệ", 25),
++            "Thanh toan don hang 123 P"
++        );
++    }
++
++    #[test]
++    fn resolves_bank_bins() {
++        assert_eq!(resolve_bank_bin("MBBank"), Some("970422"));
++        assert_eq!(resolve_bank_bin("vietcombank"), Some("970436"));
++        assert_eq!(resolve_bank_bin("970407"), Some("970407"));
++        assert_eq!(resolve_bank_bin("unknown"), None);
++    }
++
++    #[test]
++    fn hmac_helpers() {
++        // RFC 4231 test case 2
++        assert_eq!(
++            hmac_sha256_hex("Jefe", "what do ya want for nothing?").unwrap(),
++            "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
++        );
++        assert!(secure_eq("abc", "abc"));
++        assert!(!secure_eq("abc", "abd"));
++    }
++
++    #[test]
++    fn resolves_hosted_url() {
++        let sandbox = "https://sandbox";
++        let production = "https://production";
++        assert_eq!(resolve_hosted_payment_url(None, None, sandbox, production), sandbox);
++        assert_eq!(
++            resolve_hosted_payment_url(None, Some(false), sandbox, production),
++            production
++        );
++        let meta = hyperswitch_masking::Secret::new(serde_json::json!({"environment": "live"}));
++        assert_eq!(
++            resolve_hosted_payment_url(Some(&meta), Some(true), sandbox, production),
++            production
++        );
++        let meta = hyperswitch_masking::Secret::new(serde_json::json!({"payment_url": "https://x"}));
++        assert_eq!(
++            resolve_hosted_payment_url(Some(&meta), None, sandbox, production),
++            "https://x"
++        );
++    }
++
++    #[test]
++    fn vn_date_formats() {
++        let dt = time::macros::datetime!(2026-01-05 03:04:05 UTC);
++        let vn = to_vn(dt);
++        assert_eq!(format_yyyymmddhhmmss(vn), "20260105100405");
++        assert_eq!(format_yymmdd(vn), "260105");
++    }
++}

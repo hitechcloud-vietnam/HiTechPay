@@ -1,0 +1,240 @@
+# HiTechPay Platform — full local / single-host stack.
+#
+# Images are built from the patched upstream submodules (run scripts/bootstrap.sh first):
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+#
+# Endpoints (default ports):
+#   API (router)            http://localhost:8080
+#   Dashboard               http://localhost:9000
+#   Checkout web SDK        http://localhost:9050/HyperLoader.js
+#   Gateway (nginx, opt.)   http://localhost:80   (profile: gateway)
+
+name: hitechpay
+
+x-router-build: &router-build
+  context: ../upstream/hyperswitch
+  dockerfile: Dockerfile
+  args:
+    EXTRA_FEATURES: ${HTP_ROUTER_EXTRA_FEATURES:-}
+    RUN_ENV: ${HTP_RUN_ENV:-sandbox}
+
+volumes:
+  pg_data:
+
+networks:
+  hitechpay_net:
+
+services:
+  pg:
+    image: docker.io/postgres:16
+    restart: unless-stopped
+    networks: [hitechpay_net]
+    ports:
+      - "${HTP_PG_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${HTP_DB_USER:-db_user}
+      POSTGRES_PASSWORD: ${HTP_DB_PASSWORD:-db_pass}
+      POSTGRES_DB: ${HTP_DB_NAME:-hyperswitch_db}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+
+  redis-standalone:
+    image: docker.io/redis:7
+    restart: unless-stopped
+    networks: [hitechpay_net]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep '^PONG$'"]
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+
+  migration-runner:
+    image: docker.io/debian:trixie-slim
+    command: >
+      bash -c "
+      apt-get update && apt-get install -y curl xz-utils libpq5 &&
+      curl --proto '=https' --tlsv1.2 -LsSf https://github.com/diesel-rs/diesel/releases/download/v2.3.5/diesel_cli-installer.sh | bash &&
+      curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin &&
+      export PATH=$${PATH}:$${HOME}/.cargo/bin &&
+      just migrate"
+    working_dir: /app
+    networks: [hitechpay_net]
+    volumes:
+      - ../upstream/hyperswitch:/app
+    environment:
+      DATABASE_URL: postgresql://${HTP_DB_USER:-db_user}:${HTP_DB_PASSWORD:-db_pass}@pg:5432/${HTP_DB_NAME:-hyperswitch_db}
+    depends_on:
+      pg:
+        condition: service_healthy
+
+  superposition:
+    image: ghcr.io/juspay/superposition-demo:0.113.0
+    networks: [hitechpay_net]
+    environment:
+      API_HOSTNAME: http://localhost:8081
+      REDIS_URL: redis://redis-standalone:6379
+    depends_on:
+      redis-standalone:
+        condition: service_healthy
+
+  superposition-init:
+    image: alpine:3.20
+    networks: [hitechpay_net]
+    depends_on:
+      superposition:
+        condition: service_started
+    volumes:
+      - ../upstream/hyperswitch/config/superposition_seed.toml:/seed.toml:ro
+      - ../upstream/hyperswitch/scripts/seed_superposition.sh:/seed_superposition.sh:ro
+    environment:
+      SUPERPOSITION_URL: http://superposition:8080
+      SEED_FILE: /seed.toml
+      WORKSPACE_ID: dev
+      ORG_ID: localorg
+    command: sh -c "apk add --no-cache curl jq yq && sh /seed_superposition.sh"
+    restart: "no"
+
+  router:
+    image: ${HTP_REGISTRY:-hitechpay}/router:${HTP_VERSION:-latest}
+    build:
+      <<: *router-build
+      args:
+        BINARY: router
+        EXTRA_FEATURES: ${HTP_ROUTER_EXTRA_FEATURES:-}
+        RUN_ENV: ${HTP_RUN_ENV:-sandbox}
+    restart: unless-stopped
+    command: /local/bin/router -f /local/config/docker_compose.toml
+    ports:
+      - "${HTP_API_PORT:-8080}:8080"
+    networks: [hitechpay_net]
+    volumes:
+      - ../upstream/hyperswitch/config:/local/config:ro
+    environment:
+      ROUTER__SERVER__BASE_URL: ${HTP_API_PUBLIC_URL:-http://localhost:8080}
+      ROUTER__USER__BASE_URL: ${HTP_DASHBOARD_PUBLIC_URL:-http://localhost:9000}
+      ROUTER__SECRETS__ADMIN_API_KEY: ${HTP_ADMIN_API_KEY:-test_admin}
+      ROUTER__SECRETS__JWT_SECRET: ${HTP_JWT_SECRET:-change-me-jwt-secret}
+      ROUTER__SECRETS__MASTER_ENC_KEY: ${HTP_MASTER_ENC_KEY:-73ad7bbbbc640c845a150f67d058b279849370cd2c1f3c67c4dd6c869213e13a}
+    depends_on:
+      pg:
+        condition: service_healthy
+      redis-standalone:
+        condition: service_healthy
+      migration-runner:
+        condition: service_completed_successfully
+      superposition-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: curl --fail http://localhost:8080/health || exit 1
+      interval: 10s
+      retries: 6
+      start_period: 20s
+      timeout: 5s
+
+  scheduler-consumer:
+    image: ${HTP_REGISTRY:-hitechpay}/scheduler:${HTP_VERSION:-latest}
+    build:
+      <<: *router-build
+      args:
+        BINARY: scheduler
+        SCHEDULER_FLOW: consumer
+    profiles: [scheduler]
+    restart: unless-stopped
+    command: /local/bin/scheduler -f /local/config/docker_compose.toml
+    networks: [hitechpay_net]
+    volumes:
+      - ../upstream/hyperswitch/config:/local/config:ro
+    environment:
+      SCHEDULER_FLOW: consumer
+    depends_on:
+      router:
+        condition: service_healthy
+
+  scheduler-producer:
+    image: ${HTP_REGISTRY:-hitechpay}/scheduler:${HTP_VERSION:-latest}
+    profiles: [scheduler]
+    restart: unless-stopped
+    command: /local/bin/scheduler -f /local/config/docker_compose.toml
+    networks: [hitechpay_net]
+    volumes:
+      - ../upstream/hyperswitch/config:/local/config:ro
+    environment:
+      SCHEDULER_FLOW: producer
+    depends_on:
+      scheduler-consumer:
+        condition: service_started
+
+  checkout-sdk:
+    image: ${HTP_REGISTRY:-hitechpay}/checkout-sdk:${HTP_VERSION:-latest}
+    build:
+      context: ../upstream/hyperswitch-web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${HTP_SDK_PORT:-9050}:9050"
+    networks: [hitechpay_net]
+    environment:
+      ENABLE_LOGGING: "false"
+      SDK_ENV: local
+      ENV_BACKEND_URL: ${HTP_API_PUBLIC_URL:-http://localhost:8080}
+      ENV_LOGGING_URL: ""
+    depends_on:
+      router:
+        condition: service_healthy
+
+  dashboard:
+    image: ${HTP_REGISTRY:-hitechpay}/dashboard:${HTP_VERSION:-latest}
+    build:
+      context: ../upstream/hyperswitch-control-center
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${HTP_DASHBOARD_PORT:-9000}:9000"
+    networks: [hitechpay_net]
+    environment:
+      configPath: /tmp/dashboard-config.toml
+      themeConfigPath: /tmp/dashboard-theme.json
+    volumes:
+      - ./config/dashboard.toml:/tmp/dashboard-config.toml:ro
+      - ./config/dashboard_theme.json:/tmp/dashboard-theme.json:ro
+    depends_on:
+      router:
+        condition: service_healthy
+
+  create-default-user:
+    image: docker.io/curlimages/curl-base:latest
+    profiles: [bootstrap]
+    networks: [hitechpay_net]
+    environment:
+      HYPERSWITCH_SERVER_URL: http://router:8080
+      HYPERSWITCH_CONTROL_CENTER_URL: http://dashboard:9000
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache bash jq && /bin/bash /create_default_user.sh"]
+    volumes:
+      - ../upstream/hyperswitch/scripts/create_default_user.sh:/create_default_user.sh:ro
+    depends_on:
+      router:
+        condition: service_healthy
+      dashboard:
+        condition: service_started
+
+  gateway:
+    image: docker.io/nginx:1.27-alpine
+    profiles: [gateway]
+    restart: unless-stopped
+    ports:
+      - "${HTP_HTTP_PORT:-80}:80"
+    networks: [hitechpay_net]
+    volumes:
+      - ./nginx/hitechpay.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../branding/assets:/usr/share/nginx/branding:ro
+    depends_on:
+      - router
+      - dashboard
+      - checkout-sdk

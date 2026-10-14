@@ -1,0 +1,581 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 08:42:41 +0000
+Subject: [PATCH 1/3] feat(payment-methods): add viet_qr, momo_atm and
+ local_bank_redirect
+
+- add PaymentMethodsRecord entries with neutral sprite icons
+- build request bodies for real_time_payment/viet_qr, card_redirect/momo_atm
+  and bank_redirect/local_bank_redirect without QR/redirect suffixes
+- add VietQR presentation config to QRCodeDisplay
+- add payment_methods_viet_qr, payment_methods_momo_atm and
+  payment_methods_local_bank_redirect strings to all locales
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014p7hcqtGKsGWvEUtmq6YEC
+
+diff --git a/public/icons/orca.svg b/public/icons/orca.svg
+index 523a6dd..c8dc5bb 100644
+--- a/public/icons/orca.svg
++++ b/public/icons/orca.svg
+@@ -3477,4 +3477,15 @@ License)
+ <symbol id="wise" viewBox="0 0 68 68"><defs><style>.tl3_cls-1{fill:#00b9ff;}</style></defs><g id="tl3_Brand_Blue" data-name="Brand Blue"><polygon class="tl3_cls-1" points="22.12 19.5 5 35.85 34.11 35.85 37.15 28.73 22.4 28.73 31.63 19.5 26.27 10.28 51.29 10.28 28.2 64.85 36.87 64.85 63 3.15 12.51 3.15 22.12 19.5"/></g></symbol>
+ <symbol id="yorkshire-bank" viewBox="0 0 68 68"><style type="text/css"> .tl126_st0{fill:url(#tl126_SVGID_1_);} .tl126_st1{fill:#FFFFFF;} </style><linearGradient id="tl126_SVGID_1_" gradientUnits="userSpaceOnUse" x1="34" y1="67.9975" x2="34" y2="-2.456665e-03"><stop offset="0" style="stop-color:#17358A"/><stop offset="9.138948e-02" style="stop-color:#214B97"/><stop offset="0.3329" style="stop-color:#3983B6"/><stop offset="0.45" style="stop-color:#4398C2"/><stop offset="1" style="stop-color:#4398C2"/></linearGradient><path class="tl126_st0" d="M0 0v68h68V0H0zM23.5 22.3h.7c0 0 .3 -.1 .4 -.1c-.3 -.7 0 -1.5 .5 -2.3c1.2 -1.9 4.1 -3.9 6.5 -3.9c.5 0 1.1 .1 1.5 .3l.8 -1.1l.3 1c.4 -.1 .8 -.3 1.4 -.3c2.2 0 5.3 1.6 6.7 3.7c.7 .8 .9 1.6 .8 2.5l1.2 .3l-.7 1c1.4 1.2 1.4 4.1 1 6.2c-.7 2.2 -2 4.6 -4.2 4.6l.1 1.4l-1.4 -.4c-.1 .3 -.3 .4 -.4 .7C38 36.4 36.2 37 34.1 37c-2 0 -4.6 -.4 -5.6 -1.6c-.1 -.3 -.3 -.5 -.3 -.8l-1.1 .3v-1.2c-2.2 0 -3.5 -2.7 -3.9 -5.4c-.3 -1.9 -.1 -4.1 1 -4.9L23.5 22.3zM63 26.2c0 8.6 -3.4 16 -11.1 20.8c-6.2 3.8 -14.8 6.1 -22.3 5.8c-2.5 -.1 -10.2 -.8 -12.5 -2.3h.1c6 .8 12.4 1.1 17.6 -1.6c4.1 -2 7.9 -5.6 9.6 -10.2l.3 -.7c0 -.1 -.4 -.4 -.4 -.4c-.8 .4 -1.2 .9 -4.1 1.9c-4.9 1.6 -9.6 1.6 -14.4 1.1C10.9 38.9 5 34.8 5 26V15.8h15.1v9.9c0 3.7 1.9 7.7 5.2 10c2.3 1.8 5 2.6 8.2 2.6c2.7 0 5.4 -1.1 7.6 -2.3c4.4 -2.7 6.1 -6 6.1 -10V15.8H63V26.2zM40.5 25.3c-.8 .4 -1.9 .5 -3 .7l-.1 .3c0 .8 -.3 1.5 -.7 2l-.1 .3c.1 0 .1 .1 .3 .1c.5 .4 1.1 .8 1.8 1.8c.5 .5 .8 1 1 1.4c.3 .4 .3 .5 .5 .7h.1c.5 0 1.6 -1.1 2.2 -2c.7 -1.4 .9 -3.7 1.1 -4.6c-.1 -.1 -.1 -.3 -.1 -.4c-.1 -.7 -.3 -1.4 -.7 -1.4c-.1 0 -.3 0 -.4 .1c-.8 .4 -1 .5 -1.1 .7C41 25 40.9 25.2 40.5 25.3zM36.5 24.6c.1 -.1 .1 -.1 .3 -.3c.4 -.4 1 -.8 1.9 -1.2c.8 -.4 1.5 -.5 1.9 -.5c.4 -.1 .7 -.1 .8 -.3c.5 -.4 .4 -.8 -.4 -1.8c-.1 -.1 -.3 -.4 -.4 -.5c-1.1 -1.3 -1.8 -1.8 -3.8 -2.3c-.3 -.1 -.7 -.1 -1 -.1c-.4 0 -.8 .1 -1 .3c-.1 .1 -.1 .1 -.1 .4c0 .5 .1 .8 .1 1.1c.1 .3 .1 .5 .1 1.1c0 .8 -.1 1.6 -.5 2.6v.1C35.3 23.4 36.1 23.9 36.5 24.6zM36.8 32.1c-.5 -.8 -1.2 -1.9 -1.4 -2.7h-.3c-.4 .1 -.7 .1 -1.1 .1c-.3 0 -.7 0 -1 -.1h-.4c-.3 1 -.8 1.6 -1.4 2.3c-.3 .3 -.5 .6 -.8 .8c-.4 .5 -1 1 -1 1.4c-.1 .7 1 1.1 1.6 1.2c1.2 .3 2 .4 2.7 .4c.4 0 1 0 1.6 -.1c.3 -.1 .5 -.1 .8 -.3c.8 -.1 1.2 -.3 1.6 -1.1c.1 -.3 -.1 -.5 -.5 -1.1C37.3 32.8 37.1 32.4 36.8 32.1zM31.9 26.2c0 1.1 1 2 2 2c1.1 0 2 -1 2 -2c0 -1.1 -1 -1.9 -2 -2C32.9 24.2 31.9 25.2 31.9 26.2zM27.3 22.7c.4 0 1 .1 1.5 .4c.8 .3 1.4 .7 1.8 1c.1 .3 .3 .3 .4 .4c.4 -.5 1 -1 1.6 -1.2l.3 -.1v-.3c-.1 -.9 -.3 -1.8 -.3 -2.6c0 -.5 .1 -.8 .1 -1.1c0 -.3 .1 -.5 .1 -1.1c0 -.3 -.1 -.4 -.1 -.4c-.1 -.1 -.4 -.3 -.8 -.3c-.3 0 -.7 0 -1 .1c-2 .7 -2.7 1.1 -3.8 2.3l-.3 .3c-.8 1 -1.1 1.5 -.8 2C26.3 22.4 26.7 22.6 27.3 22.7zM27.4 32.2c.3 0 .5 -.3 .9 -1c.1 -.3 .4 -.7 .7 -1.1c.5 -.8 1.2 -1.2 1.8 -1.5c.3 0 .4 -.1 .5 -.1v-.3c-.4 -.6 -.7 -1.2 -.7 -2c0 -.1 0 -.1 0 -.3c-.9 0 -2.2 -.4 -3 -.7h-.1c-.5 -.1 -.8 -.4 -1.1 -.5c-.4 -.1 -.7 -.3 -1.2 -.4c-.5 0 -.7 .4 -.8 1.6c0 .7 .1 3 1 4.6C25.9 31.4 26.6 32.1 27.4 32.2z"/><g><path class="tl126_st1" d="M29.6 52.9c7.5 .3 16 -2 22.3 -5.8C59.6 42.3 63 34.8 63 26.2V15.8H47.1V26c0 4.1 -1.8 7.3 -6.1 10c-2.2 1.2 -4.9 2.3 -7.6 2.3c-3.1 0 -5.8 -.8 -8.1 -2.6c-3.3 -2.3 -5.2 -6.4 -5.2 -10v-9.9H5V26c0 8.8 5.8 12.9 20.9 14.7c4.8 .5 9.5 .5 14.4 -1.1c2.9 -1 3.3 -1.5 4.1 -1.9c0 0 .4 .3 .4 .4l-.3 .7c-1.8 4.6 -5.6 8.1 -9.6 10.2c-5.3 2.7 -11.7 2.4 -17.7 1.6h-.1C19.4 52 27.1 52.7 29.6 52.9L29.6 52.9z"/><path class="tl126_st1" d="M43.6 23.1l.7 -1L43 21.9c.1 -.8 -.1 -1.6 -.8 -2.4c-1.4 -2 -4.5 -3.7 -6.7 -3.7c-.5 0 -1 .1 -1.4 .3l-.3 -1l-.8 1.1c-.4 -.1 -1 -.3 -1.5 -.3c-2.4 0 -5.3 2 -6.5 3.9c-.5 .8 -.8 1.6 -.5 2.3c-.1 0 -.4 .1 -.4 .1h-.7l.7 1c-1.1 .8 -1.2 3 -1 4.9c.4 2.7 1.8 5.4 3.9 5.4v1.2l1.1 -.3c0 .3 .1 .5 .3 .8c1 1.2 3.5 1.6 5.6 1.6c2.2 0 3.9 -.5 4.6 -1.4c.1 -.3 .3 -.4 .4 -.7l1.4 .4L40.3 34c2.2 0 3.5 -2.4 4.2 -4.6C44.9 27.2 44.9 24.3 43.6 23.1L43.6 23.1zM35 20.4c0 -.5 0 -.8 -.1 -1.1c0 -.3 -.1 -.5 -.1 -1.1c0 -.3 0 -.3 .1 -.4c.1 -.1 .5 -.3 1 -.3c.3 0 .7 0 1 .1c2 .5 2.7 1 3.8 2.3c.1 .1 .3 .4 .4 .5c.8 1 1 1.4 .4 1.8c-.1 .1 -.4 .1 -.8 .3c-.4 0 -1.1 .1 -1.9 .5c-1 .4 -1.5 .8 -1.9 1.2c-.1 .1 -.1 .1 -.3 .3c-.4 -.7 -1.2 -1.2 -2 -1.5V23C34.9 22 35 21.2 35 20.4L35 20.4zM36 26.2c0 1.1 -1 2 -2 2c-1.1 0 -2 -1 -2 -2c0 -1.1 1 -2 2 -2C35 24.3 36 25.2 36 26.2L36 26.2zM26.9 20.1l.3 -.3c1.1 -1.2 1.8 -1.6 3.8 -2.3c.3 -.1 .7 -.1 1 -.1c.4 0 .7 .1 .8 .3c0 0 .1 .1 .1 .4c0 .5 -.1 .8 -.1 1.1c0 .3 -.1 .5 -.1 1.1c0 .8 .1 1.6 .3 2.6v.3l-.3 .1c-.7 .3 -1.2 .7 -1.6 1.2l0 0c-.1 -.1 -.3 -.1 -.4 -.4c-.4 -.3 -1 -.7 -1.8 -1c-.5 -.3 -1.1 -.4 -1.5 -.4c-.5 -.1 -1 -.3 -1.2 -.5C25.8 21.6 26.1 21.1 26.9 20.1L26.9 20.1zM28.4 31.3c-.4 .7 -.7 1 -1 1c-.8 -.1 -1.5 -.8 -2 -1.6c-.8 -1.6 -1 -3.9 -1 -4.6c.1 -1.2 .3 -1.6 .8 -1.6l0 0c.5 .1 .8 .3 1.2 .4c.3 .1 .5 .4 1.1 .5h.1c.8 .3 2 .7 3 .7c0 .1 0 .1 0 .3c0 .8 .3 1.5 .7 2v.3c-.1 0 -.3 .1 -.5 .1c-.5 .3 -1.2 .7 -1.8 1.5C28.8 30.6 28.5 31 28.4 31.3L28.4 31.3zM36.4 35.1c-.3 .1 -.5 .1 -.8 .3c-.7 .1 -1.2 .1 -1.6 .1c-.7 0 -1.5 -.1 -2.7 -.4c-.7 -.1 -1.8 -.5 -1.6 -1.2c0 -.4 .5 -.8 1 -1.4c.3 -.3 .5 -.5 .8 -.8c.5 -.7 1.1 -1.4 1.4 -2.3h.4c.3 .1 .7 .1 1 .1c.4 0 .7 0 1.1 -.1h.3c.1 .8 .8 1.9 1.4 2.7c.3 .3 .5 .7 .7 .8c.4 .5 .7 .8 .5 1.1C37.6 34.8 37.2 34.9 36.4 35.1L36.4 35.1zM42.4 30.5c-.5 1 -1.6 2 -2.2 2H40c-.3 -.1 -.3 -.3 -.5 -.7c-.1 -.4 -.4 -.8 -1 -1.4c-.7 -1 -1.2 -1.4 -1.8 -1.8c-.1 0 -.1 -.1 -.3 -.1l.1 -.3c.4 -.5 .7 -1.2 .7 -2l0 0l.1 -.3c1.1 -.1 2.2 -.3 3 -.7c.4 -.1 .5 -.3 .7 -.4c.1 -.1 .3 -.3 1.1 -.7c.1 -.1 .3 -.1 .4 -.1c.4 0 .5 .7 .7 1.4c0 .1 0 .3 .1 .4C43.3 26.8 43 29.1 42.4 30.5L42.4 30.5z"/></g></symbol>
+ <symbol id="zempler-formerly-cashplus" viewBox="0 0 68 68"><style type="text/css"> .tl127_st0{fill:#FFFFFF;} .tl127_st1{fill:#001920;} .tl127_st2{fill:#80DAFF;} </style><rect y="0" class="tl127_st1" width="68" height="68"/><path class="tl127_st2" d="M36.2 53.5c1.3 -10.8 7.3 -17 17.8 -19.1c0 -1.3 0 -2.6 0 -4c-5.9 -.9 -11.7 -.4 -17.6 .9c0 -5.8 0 -11.3 0 -16.8c-1.7 0 -3.2 0 -4.6 0c-1.3 10.7 -7.2 17 -17.7 19.1c0 1.3 0 2.6 0 4c5.9 .9 11.7 .4 17.6 -.9c0 5.8 0 11.3 0 16.8C33.3 53.5 34.7 53.5 36.2 53.5z"/></symbol>
++<symbol id="viet_qr" viewBox="0 0 24 24">
++    <path fill="none" stroke="currentColor" stroke-width="1.6" d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z" />
++    <path fill="currentColor" d="M5.5 5.5h2v2h-2zM16.5 5.5h2v2h-2zM5.5 16.5h2v2h-2zM14 14h3v3h-3zM18 18h3v3h-3zM18 14h3v2h-3zM14 18h2v3h-2z" />
++  </symbol>
++  <symbol id="momo_atm" viewBox="0 0 24 24">
++    <rect x="2" y="5" width="20" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" />
++    <path fill="currentColor" d="M2 8.5h20v2.5H2zM5 14h6v1.6H5z" />
++  </symbol>
++  <symbol id="local_bank_redirect" viewBox="0 0 24 24">
++    <path fill="currentColor" d="M12 2 2 7v2h20V7L12 2zM4 10.5h3v7H4zM10.5 10.5h3v7h-3zM17 10.5h3v7h-3zM2 19h20v3H2z" />
++  </symbol>
+ </svg>
+diff --git a/src/LocaleStrings/ArabicLocale.res b/src/LocaleStrings/ArabicLocale.res
+index 7b5b224..f602d99 100644
+--- a/src/LocaleStrings/ArabicLocale.res
++++ b/src/LocaleStrings/ArabicLocale.res
+@@ -184,6 +184,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `علي باي هونغ كونغ`,
+   payment_methods_we_chat_pay: `وي تشات باي`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `ريفولت باي`,
+   payment_methods_affirm: `أفيرم`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/BosnianLocale.res b/src/LocaleStrings/BosnianLocale.res
+index a72dfef..5347403 100644
+--- a/src/LocaleStrings/BosnianLocale.res
++++ b/src/LocaleStrings/BosnianLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/CatalanLocale.res b/src/LocaleStrings/CatalanLocale.res
+index 78c7fda..e5b9bcb 100644
+--- a/src/LocaleStrings/CatalanLocale.res
++++ b/src/LocaleStrings/CatalanLocale.res
+@@ -183,6 +183,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/ChineseLocale.res b/src/LocaleStrings/ChineseLocale.res
+index e574100..562ddd4 100644
+--- a/src/LocaleStrings/ChineseLocale.res
++++ b/src/LocaleStrings/ChineseLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `支付宝香港`,
+   payment_methods_we_chat_pay: `微信支付`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/CzechLocale.res b/src/LocaleStrings/CzechLocale.res
+index d31f2f4..ecad9e0 100644
+--- a/src/LocaleStrings/CzechLocale.res
++++ b/src/LocaleStrings/CzechLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/DanishLocale.res b/src/LocaleStrings/DanishLocale.res
+index af7ae3c..9974bd1 100644
+--- a/src/LocaleStrings/DanishLocale.res
++++ b/src/LocaleStrings/DanishLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/DeutschLocale.res b/src/LocaleStrings/DeutschLocale.res
+index cebf385..2f7521f 100644
+--- a/src/LocaleStrings/DeutschLocale.res
++++ b/src/LocaleStrings/DeutschLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/DutchLocale.res b/src/LocaleStrings/DutchLocale.res
+index bf84726..0a47b8f 100644
+--- a/src/LocaleStrings/DutchLocale.res
++++ b/src/LocaleStrings/DutchLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/EnglishGBLocale.res b/src/LocaleStrings/EnglishGBLocale.res
+index baf0888..1f1d9fd 100644
+--- a/src/LocaleStrings/EnglishGBLocale.res
++++ b/src/LocaleStrings/EnglishGBLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/EnglishLocale.res b/src/LocaleStrings/EnglishLocale.res
+index d3062ad..e07628a 100644
+--- a/src/LocaleStrings/EnglishLocale.res
++++ b/src/LocaleStrings/EnglishLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/EstonianLocale.res b/src/LocaleStrings/EstonianLocale.res
+index 7239591..dff1b58 100644
+--- a/src/LocaleStrings/EstonianLocale.res
++++ b/src/LocaleStrings/EstonianLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/FinnishLocale.res b/src/LocaleStrings/FinnishLocale.res
+index 02421e6..5f50407 100644
+--- a/src/LocaleStrings/FinnishLocale.res
++++ b/src/LocaleStrings/FinnishLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/FrenchBelgiumLocale.res b/src/LocaleStrings/FrenchBelgiumLocale.res
+index 60b0152..0c69e2f 100644
+--- a/src/LocaleStrings/FrenchBelgiumLocale.res
++++ b/src/LocaleStrings/FrenchBelgiumLocale.res
+@@ -183,6 +183,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/FrenchCanadianLocale.res b/src/LocaleStrings/FrenchCanadianLocale.res
+index 253192f..8dd082e 100644
+--- a/src/LocaleStrings/FrenchCanadianLocale.res
++++ b/src/LocaleStrings/FrenchCanadianLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/FrenchLocale.res b/src/LocaleStrings/FrenchLocale.res
+index c2a8ac7..d032d73 100644
+--- a/src/LocaleStrings/FrenchLocale.res
++++ b/src/LocaleStrings/FrenchLocale.res
+@@ -183,6 +183,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/GreekLocale.res b/src/LocaleStrings/GreekLocale.res
+index 5cab51a..c958c22 100644
+--- a/src/LocaleStrings/GreekLocale.res
++++ b/src/LocaleStrings/GreekLocale.res
+@@ -192,6 +192,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/HebrewLocale.res b/src/LocaleStrings/HebrewLocale.res
+index 04a2603..e9a43a9 100644
+--- a/src/LocaleStrings/HebrewLocale.res
++++ b/src/LocaleStrings/HebrewLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `עלי פיי הונג קונג`,
+   payment_methods_we_chat_pay: `ווי צ'אט`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `רבולוט פיי`,
+   payment_methods_affirm: `אפירם`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/IcelandicLocale.res b/src/LocaleStrings/IcelandicLocale.res
+index 4d40ced..0dba381 100644
+--- a/src/LocaleStrings/IcelandicLocale.res
++++ b/src/LocaleStrings/IcelandicLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/ItalianLocale.res b/src/LocaleStrings/ItalianLocale.res
+index 1023f8a..f813137 100644
+--- a/src/LocaleStrings/ItalianLocale.res
++++ b/src/LocaleStrings/ItalianLocale.res
+@@ -183,6 +183,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/JapaneseLocale.res b/src/LocaleStrings/JapaneseLocale.res
+index 5308286..0fb8c86 100644
+--- a/src/LocaleStrings/JapaneseLocale.res
++++ b/src/LocaleStrings/JapaneseLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `アリペイHK`,
+   payment_methods_we_chat_pay: `WeChat Pay`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/LithuanianLocale.res b/src/LocaleStrings/LithuanianLocale.res
+index 1a495d4..6ed7fff 100644
+--- a/src/LocaleStrings/LithuanianLocale.res
++++ b/src/LocaleStrings/LithuanianLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/LocaleStringTypes.res b/src/LocaleStrings/LocaleStringTypes.res
+index 1043afa..54069ad 100644
+--- a/src/LocaleStrings/LocaleStringTypes.res
++++ b/src/LocaleStrings/LocaleStringTypes.res
+@@ -201,6 +201,9 @@ type localeStrings = {
+   payment_methods_ali_pay_hk: string,
+   payment_methods_we_chat_pay: string,
+   payment_methods_duit_now: string,
++  payment_methods_viet_qr: string,
++  payment_methods_momo_atm: string,
++  payment_methods_local_bank_redirect: string,
+   payment_methods_revolut_pay: string,
+   payment_methods_affirm: string,
+   payment_methods_pay_safe_card: string,
+diff --git a/src/LocaleStrings/MalayLocale.res b/src/LocaleStrings/MalayLocale.res
+index c86bae0..909d900 100644
+--- a/src/LocaleStrings/MalayLocale.res
++++ b/src/LocaleStrings/MalayLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/NorwegianLocale.res b/src/LocaleStrings/NorwegianLocale.res
+index 1b06fff..dc63169 100644
+--- a/src/LocaleStrings/NorwegianLocale.res
++++ b/src/LocaleStrings/NorwegianLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/PolishLocale.res b/src/LocaleStrings/PolishLocale.res
+index 61fa9dd..7c03537 100644
+--- a/src/LocaleStrings/PolishLocale.res
++++ b/src/LocaleStrings/PolishLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/PortugueseLocale.res b/src/LocaleStrings/PortugueseLocale.res
+index 2f07ff8..8270406 100644
+--- a/src/LocaleStrings/PortugueseLocale.res
++++ b/src/LocaleStrings/PortugueseLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/RussianLocale.res b/src/LocaleStrings/RussianLocale.res
+index 3faca53..bb9a818 100644
+--- a/src/LocaleStrings/RussianLocale.res
++++ b/src/LocaleStrings/RussianLocale.res
+@@ -190,6 +190,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/SlovakLocale.res b/src/LocaleStrings/SlovakLocale.res
+index d68b6b3..597a2cd 100644
+--- a/src/LocaleStrings/SlovakLocale.res
++++ b/src/LocaleStrings/SlovakLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/SpanishLocale.res b/src/LocaleStrings/SpanishLocale.res
+index 18e60b8..c4712b7 100644
+--- a/src/LocaleStrings/SpanishLocale.res
++++ b/src/LocaleStrings/SpanishLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/SwedishLocale.res b/src/LocaleStrings/SwedishLocale.res
+index 5f1a456..37aa1b5 100644
+--- a/src/LocaleStrings/SwedishLocale.res
++++ b/src/LocaleStrings/SwedishLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/TraditionalChineseLocale.res b/src/LocaleStrings/TraditionalChineseLocale.res
+index bf729d6..754d986 100644
+--- a/src/LocaleStrings/TraditionalChineseLocale.res
++++ b/src/LocaleStrings/TraditionalChineseLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `支付寶香港`,
+   payment_methods_we_chat_pay: `微信支付`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/TurkishLocale.res b/src/LocaleStrings/TurkishLocale.res
+index d5f4d0e..4cb9c6b 100644
+--- a/src/LocaleStrings/TurkishLocale.res
++++ b/src/LocaleStrings/TurkishLocale.res
+@@ -182,6 +182,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/LocaleStrings/WelshLocale.res b/src/LocaleStrings/WelshLocale.res
+index f45ed82..1b1be40 100644
+--- a/src/LocaleStrings/WelshLocale.res
++++ b/src/LocaleStrings/WelshLocale.res
+@@ -181,6 +181,9 @@ let localeStrings: LocaleStringTypes.localeStrings = {
+   payment_methods_ali_pay_hk: `AlipayHK`,
+   payment_methods_we_chat_pay: `WeChat`,
+   payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa / Domestic bank`,
+   payment_methods_revolut_pay: `Revolut Pay`,
+   payment_methods_affirm: `Affirm`,
+   payment_methods_pay_safe_card: `PaysafeCard`,
+diff --git a/src/Payments/PaymentMethodsRecord.res b/src/Payments/PaymentMethodsRecord.res
+index 18885f2..cf4e8bb 100644
+--- a/src/Payments/PaymentMethodsRecord.res
++++ b/src/Payments/PaymentMethodsRecord.res
+@@ -233,6 +233,27 @@ let getPaymentMethodsFields = (~localeString: LocaleStringTypes.localeStrings) =
+     displayName: localeString.payment_methods_duit_now,
+     miniIcon: None,
+   },
++  {
++    paymentMethodName: "viet_qr",
++    fields: [InfoElement],
++    icon: Some(icon("viet_qr", ~size=19)),
++    displayName: localeString.payment_methods_viet_qr,
++    miniIcon: None,
++  },
++  {
++    paymentMethodName: "momo_atm",
++    fields: [InfoElement],
++    icon: Some(icon("momo_atm", ~size=19)),
++    displayName: localeString.payment_methods_momo_atm,
++    miniIcon: None,
++  },
++  {
++    paymentMethodName: "local_bank_redirect",
++    fields: [InfoElement],
++    icon: Some(icon("local_bank_redirect", ~size=19)),
++    displayName: localeString.payment_methods_local_bank_redirect,
++    miniIcon: None,
++  },
+   {
+     paymentMethodName: "revolut_pay",
+     fields: [InfoElement],
+diff --git a/src/Payments/QRCodeDisplay.res b/src/Payments/QRCodeDisplay.res
+index 6b0fa7f..9f56c18 100644
+--- a/src/Payments/QRCodeDisplay.res
++++ b/src/Payments/QRCodeDisplay.res
+@@ -5,6 +5,7 @@ let maxQRTime = 900000.0
+ 
+ type paymentMethod =
+   | DuitNow
++  | VietQR
+   | Other
+ 
+ type paymentMethodConfig = {
+@@ -27,6 +28,7 @@ let getKeyValue = (json, str) => {
+ let parsePaymentMethod = methodString => {
+   switch methodString {
+   | "duit_now" => DuitNow
++  | "viet_qr" => VietQR
+   | _ => Other
+   }
+ }
+@@ -50,6 +52,14 @@ let getPaymentMethodConfig = method => {
+       showLogo: true,
+       logoName: "duitNow",
+     }
++  | VietQR => {
++      ...baseConfig,
++      defaultColor: "#00529C",
++      showBorder: true,
++      footerText: "VIETQR",
++      showLogo: true,
++      logoName: "viet_qr",
++    }
+   | Other => baseConfig
+   }
+ }
+diff --git a/src/Utilities/PaymentBody.res b/src/Utilities/PaymentBody.res
+index aa8245a..c29f2d2 100644
+--- a/src/Utilities/PaymentBody.res
++++ b/src/Utilities/PaymentBody.res
+@@ -1142,6 +1142,11 @@ let getPaymentBody = (
+     | _ =>
+       dynamicPaymentBody(paymentMethod, paymentMethodType)
+     }
++  | "viet_qr"
++  | "momo_atm"
++  | "local_bank_redirect" =>
++    // payment_method_data: {<payment_method>: {<payment_method_type>: {}}} — no QR/redirect suffix
++    dynamicPaymentBody(paymentMethod, paymentMethodType)
+   | "giropay" => giroPayBody(~name=fullName)
+   | "online_banking_poland" => polandOB(~bank)
+   | "online_banking_czech_republic" => czechOB(~bank)

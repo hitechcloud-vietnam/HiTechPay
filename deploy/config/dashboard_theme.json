@@ -1,0 +1,28 @@
+{
+  "settings": {
+    "colors": {
+      "primary": "#0B5FFF"
+    },
+    "sidebar": {
+      "primary": "#0A1F44",
+      "textColor": "#C9D4EA",
+      "textColorPrimary": "#FFFFFF"
+    },
+    "buttons": {
+      "primary": {
+        "backgroundColor": "#0B5FFF",
+        "textColor": "#ffffff",
+        "hoverBackgroundColor": "#0047D1"
+      },
+      "secondary": {
+        "backgroundColor": "#F1F4FA",
+        "textColor": "#3B4A63",
+        "hoverBackgroundColor": "#E3E9F5"
+      }
+    }
+  },
+  "urls": {
+    "faviconUrl": "/assets/hitechpay/favicon.svg",
+    "logoUrl": "/assets/hitechpay/Light/logo.svg"
+  }
+}

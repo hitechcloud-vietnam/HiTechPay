@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 09:02:25 +0000
+Subject: [PATCH 3/4] feat(core): allow connectors to resolve payment sync
+ locally
+
+Adds ConnectorSpecifications::should_build_psync_response_locally for
+gateways without a status query API (Viettel Money legacy gateway, Pay2S)
+where the status is taken from the IPN or the signed redirect response.
+
+diff --git a/crates/hyperswitch_interfaces/src/api.rs b/crates/hyperswitch_interfaces/src/api.rs
+index 4d68e4f..3251a75 100644
+--- a/crates/hyperswitch_interfaces/src/api.rs
++++ b/crates/hyperswitch_interfaces/src/api.rs
+@@ -671,6 +671,13 @@ pub trait ConnectorSpecifications {
+         false
+     }
+ 
++    /// Check if the connector resolves payment sync locally, without calling the connector
++    /// (gateways without a status query API, where the status comes from IPN webhooks or
++    /// from the signed redirect response stored in `encoded_data`).
++    fn should_build_psync_response_locally(&self) -> bool {
++        false
++    }
++
+     /// Returns the webhook registration plan for this connector.
+     /// Given the requested scope returns a list of (identifier, webhook_url)` tuples. Each tuple corresponds to one connector integration call.
+     fn get_webhook_registration_plan(
+diff --git a/crates/hyperswitch_interfaces/src/connector_integration_interface.rs b/crates/hyperswitch_interfaces/src/connector_integration_interface.rs
+index e774003..39d4124 100644
+--- a/crates/hyperswitch_interfaces/src/connector_integration_interface.rs
++++ b/crates/hyperswitch_interfaces/src/connector_integration_interface.rs
+@@ -887,6 +887,13 @@ impl ConnectorSpecifications for ConnectorEnum {
+         }
+     }
+ 
++    fn should_build_psync_response_locally(&self) -> bool {
++        match self {
++            Self::Old(connector) => connector.should_build_psync_response_locally(),
++            Self::New(connector) => connector.should_build_psync_response_locally(),
++        }
++    }
++
+     fn get_webhook_registration_plan(
+         &self,
+         scope: &Scope,
+diff --git a/crates/router/src/core/payments/flows/psync_flow.rs b/crates/router/src/core/payments/flows/psync_flow.rs
+index ad5da95..6630068 100644
+--- a/crates/router/src/core/payments/flows/psync_flow.rs
++++ b/crates/router/src/core/payments/flows/psync_flow.rs
+@@ -139,6 +139,16 @@ impl Feature<api::PSync, types::PaymentsSyncData>
+             (types::SyncRequestType::MultipleCaptureSync(_), Err(err)) => Err(err),
+             _ => {
+                 // for bulk sync of captures, above logic needs to be handled at connector end
++                // HiTechPay: gateways without a status query API resolve the status locally
++                let call_connector_action = if matches!(
++                    call_connector_action,
++                    payments::CallConnectorAction::Trigger
++                ) && connector.connector.should_build_psync_response_locally()
++                {
++                    payments::CallConnectorAction::HandleResponseWithoutBuildRequest
++                } else {
++                    call_connector_action
++                };
+                 let mut new_router_data = gateway::execute_payment_gateway(
+                     state,
+                     connector_integration,

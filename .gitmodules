@@ -1,0 +1,59 @@
+[submodule "upstream/hyperswitch"]
+	path = upstream/hyperswitch
+	url = https://github.com/juspay/hyperswitch
+	shallow = true
+	ignore = all
+[submodule "upstream/hyperswitch-card-vault"]
+	path = upstream/hyperswitch-card-vault
+	url = https://github.com/juspay/hyperswitch-card-vault
+	shallow = true
+[submodule "upstream/hyperswitch-client-core"]
+	path = upstream/hyperswitch-client-core
+	url = https://github.com/juspay/hyperswitch-client-core
+	shallow = true
+[submodule "upstream/hyperswitch-control-center"]
+	path = upstream/hyperswitch-control-center
+	url = https://github.com/juspay/hyperswitch-control-center
+	shallow = true
+	ignore = all
+[submodule "upstream/hyperswitch-docs"]
+	path = upstream/hyperswitch-docs
+	url = https://github.com/juspay/hyperswitch-docs
+	shallow = true
+[submodule "upstream/hyperswitch-encryption-service"]
+	path = upstream/hyperswitch-encryption-service
+	url = https://github.com/juspay/hyperswitch-encryption-service
+	shallow = true
+[submodule "upstream/hyperswitch-helm"]
+	path = upstream/hyperswitch-helm
+	url = https://github.com/juspay/hyperswitch-helm
+	shallow = true
+[submodule "upstream/hyperswitch-prism"]
+	path = upstream/hyperswitch-prism
+	url = https://github.com/juspay/hyperswitch-prism
+	shallow = true
+[submodule "upstream/hyperswitch-sdk-android"]
+	path = upstream/hyperswitch-sdk-android
+	url = https://github.com/juspay/hyperswitch-sdk-android
+	shallow = true
+[submodule "upstream/hyperswitch-sdk-ios"]
+	path = upstream/hyperswitch-sdk-ios
+	url = https://github.com/juspay/hyperswitch-sdk-ios
+	shallow = true
+[submodule "upstream/hyperswitch-sdk-utils"]
+	path = upstream/hyperswitch-sdk-utils
+	url = https://github.com/juspay/hyperswitch-sdk-utils
+	shallow = true
+[submodule "upstream/hyperswitch-web"]
+	path = upstream/hyperswitch-web
+	url = https://github.com/juspay/hyperswitch-web
+	shallow = true
+	ignore = all
+[submodule "upstream/hyperswitch-woocommerce-plugin"]
+	path = upstream/hyperswitch-woocommerce-plugin
+	url = https://github.com/juspay/hyperswitch-woocommerce-plugin
+	shallow = true
+[submodule "upstream/react-native-hyperswitch"]
+	path = upstream/react-native-hyperswitch
+	url = https://github.com/juspay/react-native-hyperswitch
+	shallow = true

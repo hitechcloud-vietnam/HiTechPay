@@ -1,0 +1,7 @@
+HiTechPay Platform
+Copyright 2026 Pho Tue Software Solutions JSC & HiTechCloud Vietnam
+
+This product includes software developed by Juspay Technologies
+(https://github.com/juspay), licensed under the Apache License, Version 2.0.
+The upstream projects are included as git submodules under upstream/ and keep their
+original licenses. HiTechPay modifications are distributed as patches under patches/.

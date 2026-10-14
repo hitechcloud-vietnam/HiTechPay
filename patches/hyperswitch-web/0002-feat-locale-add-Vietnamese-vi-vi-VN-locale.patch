@@ -1,0 +1,336 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 08:42:41 +0000
+Subject: [PATCH 2/3] feat(locale): add Vietnamese (vi / vi-VN) locale
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014p7hcqtGKsGWvEUtmq6YEC
+
+diff --git a/src/CardTheme.res b/src/CardTheme.res
+index 26c31fa..e09bb62 100644
+--- a/src/CardTheme.res
++++ b/src/CardTheme.res
+@@ -141,6 +141,7 @@ let getLocaleObject = async string => {
+     | NB => import(NorwegianLocale.localeStrings)
+     | BS => import(BosnianLocale.localeStrings)
+     | MS => import(MalayLocale.localeStrings)
++    | VI => import(VietnameseLocale.localeStrings)
+     | TR_CY => import(TurkishLocale.localeStrings)
+     }
+ 
+diff --git a/src/LocaleStrings/LocaleStringHelper.res b/src/LocaleStrings/LocaleStringHelper.res
+index 21be868..454de70 100644
+--- a/src/LocaleStrings/LocaleStringHelper.res
++++ b/src/LocaleStrings/LocaleStringHelper.res
+@@ -27,6 +27,7 @@ let mapLocalStringToTypeLocale = val => {
+   | "nb" => Some(NB)
+   | "bs" => Some(BS)
+   | "ms" => Some(MS)
++  | "vi" | "vi-vn" => Some(VI)
+   | "tr-cy" => Some(TR_CY)
+   | "zh" => Some(ZH)
+   | "en-gb" => Some(EN_GB)
+@@ -69,6 +70,7 @@ let mapLocalStringToTypeLocale = val => {
+       | "nb" | "no" | "nn" => NB
+       | "bs" => BS
+       | "ms" => MS
++      | "vi" => VI
+       | "tr" => TR_CY
+       | "zh" => ZH
+       | "en" => EN
+diff --git a/src/LocaleStrings/LocaleStringTypes.res b/src/LocaleStrings/LocaleStringTypes.res
+index 54069ad..f192983 100644
+--- a/src/LocaleStrings/LocaleStringTypes.res
++++ b/src/LocaleStrings/LocaleStringTypes.res
+@@ -30,6 +30,7 @@ type locale =
+   | NB
+   | BS
+   | MS
++  | VI
+   | TR_CY
+ 
+ type localeStrings = {
+diff --git a/src/LocaleStrings/VietnameseLocale.res b/src/LocaleStrings/VietnameseLocale.res
+new file mode 100644
+index 0000000..604ed1e
+--- /dev/null
++++ b/src/LocaleStrings/VietnameseLocale.res
+@@ -0,0 +1,278 @@
++let localeStrings: LocaleStringTypes.localeStrings = {
++  locale: "vi",
++  localeDirection: "ltr",
++  cardNumberLabel: "Số thẻ",
++  inValidCardErrorText: "Số thẻ không hợp lệ.",
++  inValidExpiryErrorText: "Ngày hết hạn của thẻ không hợp lệ.",
++  inCompleteCVCErrorText: "Mã bảo mật của thẻ chưa đầy đủ.",
++  inCompleteExpiryErrorText: "Ngày hết hạn của thẻ chưa đầy đủ.",
++  enterValidCardNumberErrorText: "Vui lòng nhập số thẻ hợp lệ.",
++  pastExpiryErrorText: "Năm hết hạn của thẻ đã qua.",
++  poweredBy: "Cung cấp bởi Hyperswitch",
++  validThruText: "Hết hạn",
++  sortCodeText: "Mã chi nhánh (Sort Code)",
++  cvcTextLabel: "CVC",
++  line1Label: "Địa chỉ dòng 1",
++  line1Placeholder: "Số nhà, tên đường",
++  line1EmptyText: "Địa chỉ dòng 1 không được để trống",
++  line2Label: "Địa chỉ dòng 2",
++  line2Placeholder: "Căn hộ, tầng, tòa nhà, v.v.",
++  line2EmptyText: "Địa chỉ dòng 2 không được để trống",
++  cityLabel: "Thành phố",
++  cityEmptyText: "Thành phố không được để trống",
++  postalCodeLabel: "Mã bưu chính",
++  postalCodeEmptyText: "Mã bưu chính không được để trống",
++  postalCodeInvalidText: "Mã bưu chính không hợp lệ",
++  stateLabel: "Tỉnh/Thành",
++  stateEmptyText: "Tỉnh/Thành không được để trống",
++  accountNumberText: "Số tài khoản",
++  accountNumberInvalidText: "Số tài khoản không hợp lệ",
++  sortCodeInvalidText: "Mã chi nhánh (Sort Code) không hợp lệ",
++  emailLabel: "Email",
++  ibanEmptyText: "IBAN không được để trống",
++  ibanInvalidText: "Vui lòng nhập IBAN hợp lệ",
++  emailEmptyText: "Email không được để trống",
++  emailInvalidText: "Địa chỉ email không hợp lệ",
++  fullNameLabel: "Họ và tên",
++  fullNamePlaceholder: "Họ và tên",
++  countryLabel: "Quốc gia",
++  currencyLabel: "Tiền tệ",
++  bankLabel: "Chọn ngân hàng",
++  documentTypeLabel: "Loại giấy tờ",
++  redirectText: "Sau khi gửi đơn hàng, bạn sẽ được chuyển hướng để hoàn tất thanh toán một cách an toàn.",
++  bankDetailsText: "Sau khi gửi các thông tin này, bạn sẽ nhận được thông tin tài khoản ngân hàng để thanh toán. Vui lòng ghi lại các thông tin đó.",
++  orPayUsing: "Hoặc thanh toán bằng",
++  addNewCard: "Thêm thẻ tín dụng/ghi nợ",
++  useExisitingSavedCards: "Dùng thẻ tín dụng/ghi nợ đã lưu",
++  saveCardDetails: "Lưu thông tin thẻ",
++  savePaymentDetails: "Lưu an toàn thông tin thanh toán để thanh toán nhanh hơn",
++  savePaymentDetailsWhereverPossible: "Lưu an toàn thông tin thanh toán để thanh toán nhanh hơn, nếu được hỗ trợ",
++  addBankAccount: "Thêm tài khoản ngân hàng",
++  achBankDebitTerms: _ =>
++    `Ủy quyền ghi nợ ACH của bạn sẽ được thiết lập ngay bây giờ, nhưng chúng tôi sẽ xác nhận số tiền và thông báo cho bạn trước khi thực hiện các khoản thanh toán trong tương lai.`,
++  sepaDebitTerms: str =>
++    `Bằng việc cung cấp thông tin thanh toán và xác nhận mẫu ủy nhiệm này, bạn ủy quyền cho (A) ${str}, Bên nhận tiền và/hoặc (các) nhà cung cấp dịch vụ thanh toán của chúng tôi gửi chỉ thị tới ngân hàng của bạn để ghi nợ tài khoản của bạn và (B) ngân hàng của bạn ghi nợ tài khoản theo chỉ thị từ ${str}. Trong phạm vi quyền lợi của mình, bạn có quyền được ngân hàng hoàn tiền theo các điều khoản và điều kiện của thỏa thuận giữa bạn và ngân hàng. Yêu cầu hoàn tiền phải được gửi trong vòng 8 tuần kể từ ngày tài khoản của bạn bị ghi nợ. Quyền của bạn được giải thích trong văn bản mà bạn có thể nhận từ ngân hàng của mình.`,
++  becsDebitTerms: `Bằng việc cung cấp thông tin tài khoản ngân hàng và xác nhận khoản thanh toán này, bạn đồng ý với Yêu cầu Ghi nợ Trực tiếp này và thỏa thuận dịch vụ Yêu cầu Ghi nợ Trực tiếp, đồng thời ủy quyền cho Hyperswitch Payments Australia Pty Ltd ACN 160 180 343, mã người dùng Ghi nợ Trực tiếp 507156 (“Hyperswitch”) ghi nợ tài khoản của bạn thông qua Hệ thống Thanh toán Bù trừ Điện tử Hàng loạt (BECS) thay mặt cho Hyperswitch Payment Widget ("Người bán") đối với bất kỳ khoản tiền nào được Người bán thông báo riêng cho bạn. Bạn xác nhận rằng bạn là chủ tài khoản hoặc người ký được ủy quyền của tài khoản nêu trên.`,
++  cardTerms: str =>
++    `Bằng việc cung cấp thông tin thẻ, bạn cho phép ${str} trừ tiền từ thẻ của bạn cho các khoản thanh toán trong tương lai theo các điều khoản của họ.`,
++  payNowButton: "Thanh toán ngay",
++  cardNumberEmptyText: "Số thẻ không được để trống",
++  cardExpiryDateEmptyText: "Ngày hết hạn của thẻ không được để trống",
++  cvcNumberEmptyText: "Mã CVC không được để trống",
++  enterFieldsText: "Vui lòng nhập tất cả các trường",
++  enterValidDetailsText: "Vui lòng nhập thông tin hợp lệ",
++  selectPaymentMethodText: "Vui lòng chọn một phương thức thanh toán và thử lại",
++  card: "Thẻ",
++  surchargeMsgAmount: (currency, str) => <>
++    {React.string(`Phụ phí${Utils.nbsp}`)}
++    <strong> {React.string(`${currency} ${str}`)} </strong>
++    {React.string({`${Utils.nbsp}sẽ được áp dụng cho giao dịch này`})}
++  </>,
++  shortSurchargeMessage: (currency, amount) => <>
++    {React.string(`Phí:${Utils.nbsp}`)}
++    <strong> {React.string(`${currency} ${amount}`)} </strong>
++  </>,
++  surchargeMsgAmountForCard: (currency, str) => <>
++    {React.string(`Phụ phí tối đa${Utils.nbsp}`)}
++    <strong> {React.string(`${currency} ${str}`)} </strong>
++    {React.string(`${Utils.nbsp}sẽ được áp dụng cho giao dịch này`)}
++  </>,
++  surchargeMsgAmountForOneClickWallets: "Có áp dụng phụ phí",
++  billingNameLabel: "Tên thanh toán",
++  billingNamePlaceholder: "Họ và tên",
++  cardHolderName: "Tên chủ thẻ",
++  on: "trên",
++  \"and": "và",
++  nameEmptyText: str => `Vui lòng cung cấp ${str} của bạn`,
++  completeNameEmptyText: str => `Vui lòng cung cấp đầy đủ ${str} của bạn`,
++  billingDetailsText: "Thông tin thanh toán",
++  socialSecurityNumberLabel: "Số an sinh xã hội",
++  saveWalletDetails: "Thông tin ví sẽ được lưu khi bạn chọn",
++  newPaymentMethods: "Phương thức thanh toán mới",
++  useExistingPaymentMethods: "Dùng phương thức thanh toán đã lưu",
++  cardNickname: "Tên gợi nhớ của thẻ",
++  nicknamePlaceholder: "Tên gợi nhớ của thẻ (Không bắt buộc)",
++  cardExpiredText: `Thẻ này đã hết hạn`,
++  cardHeader: `Thông tin thẻ`,
++  cardBrandConfiguredErrorText: str => `${str} hiện chưa được hỗ trợ.`,
++  cardNotEligibleText: "Thẻ này không được chấp nhận cho khoản thanh toán này",
++  currencyNetwork: `Mạng lưới tiền tệ`,
++  expiryPlaceholder: `MM / YY`,
++  dateOfBirth: `Ngày sinh`,
++  vpaIdLabel: "Mã VPA",
++  vpaIdEmptyText: "Mã VPA không được để trống",
++  vpaIdInvalidText: "Mã VPA không hợp lệ",
++  dateofBirthRequiredText: `Bắt buộc nhập ngày sinh`,
++  dateOfBirthInvalidText: `Tuổi phải từ 18 trở lên`,
++  dateOfBirthPlaceholderText: `Nhập ngày sinh`,
++  formFundsInfoText: `Tiền sẽ được chuyển vào tài khoản này`,
++  formFundsCreditInfoText: pmLabel =>
++    `Tiền của bạn sẽ được chuyển vào ${pmLabel} đã chọn.`,
++  formEditText: `Chỉnh sửa`,
++  formSaveText: `Lưu`,
++  formSubmitText: `Gửi`,
++  formSubmittingText: `Đang gửi`,
++  formSubheaderBillingDetailsText: `Nhập địa chỉ thanh toán của bạn`,
++  formSubheaderCardText: `Thông tin thẻ của bạn`,
++  formSubheaderAccountText: pmLabel => `${pmLabel} của bạn`,
++  formHeaderReviewText: `Xem lại`,
++  formHeaderReviewTabLayoutText: pmLabel => `Xem lại thông tin ${pmLabel} của bạn`,
++  formHeaderBankText: bankTransferType => `Nhập thông tin ngân hàng ${bankTransferType}`,
++  formHeaderWalletText: walletTransferType => `Nhập thông tin ví ${walletTransferType}`,
++  formHeaderEnterCardText: `Nhập thông tin thẻ`,
++  formHeaderSelectBankText: `Chọn phương thức ngân hàng`,
++  formHeaderSelectWalletText: `Chọn ví`,
++  formHeaderSelectAccountText: `Chọn tài khoản nhận tiền chi trả`,
++  formFieldACHRoutingNumberLabel: `Số định tuyến (Routing Number)`,
++  formFieldSepaIbanLabel: `Số tài khoản ngân hàng quốc tế (IBAN)`,
++  formFieldSepaBicLabel: `Mã định danh ngân hàng - BIC (Không bắt buộc)`,
++  formFieldPixIdLabel: `Pix ID`,
++  formFieldBankAccountNumberLabel: `Số tài khoản ngân hàng`,
++  formFieldPhoneNumberLabel: `Số điện thoại`,
++  formFieldCountryCodeLabel: `Mã quốc gia (Không bắt buộc)`,
++  formFieldCountryCodeRequiredLabel: `Mã quốc gia`,
++  formFieldBankNameLabel: `Tên ngân hàng (Không bắt buộc)`,
++  formFieldBankCityLabel: `Thành phố của ngân hàng (Không bắt buộc)`,
++  formFieldCardHoldernamePlaceholder: `Tên của bạn`,
++  formFieldBankNamePlaceholder: `Tên ngân hàng`,
++  formFieldBankCityPlaceholder: `Thành phố của ngân hàng`,
++  formFieldEmailPlaceholder: `Email của bạn`,
++  formFieldPhoneNumberPlaceholder: `Số điện thoại của bạn`,
++  formFieldInvalidRoutingNumber: `Số định tuyến không hợp lệ.`,
++  infoCardRefId: `Mã tham chiếu`,
++  infoCardErrCode: `Mã lỗi`,
++  infoCardErrMsg: `Thông báo lỗi`,
++  infoCardErrReason: `Lý do`,
++  linkRedirectionText: seconds => `Đang chuyển hướng sau ${seconds->Int.toString} giây ...`,
++  linkExpiryInfo: expiry => `Liên kết hết hạn vào: ${expiry}`,
++  payoutFromText: merchant => `Khoản chi trả từ ${merchant}`,
++  payoutStatusFailedMessage: `Không thể xử lý khoản chi trả của bạn. Vui lòng liên hệ nhà cung cấp để biết thêm chi tiết.`,
++  payoutStatusPendingMessage: `Khoản chi trả của bạn sẽ được xử lý trong vòng 2-3 ngày làm việc.`,
++  payoutStatusSuccessMessage: `Chi trả thành công. Tiền đã được chuyển vào phương thức thanh toán bạn đã chọn.`,
++  payoutStatusFailedText: `Chi trả thất bại`,
++  payoutStatusPendingText: `Đang xử lý chi trả`,
++  payoutStatusSuccessText: `Chi trả thành công`,
++  pixCNPJInvalidText: `Pix CNPJ không hợp lệ`,
++  pixCNPJEmptyText: `Pix CNPJ không được để trống`,
++  pixCNPJLabel: `Pix CNPJ`,
++  pixCNPJPlaceholder: `Nhập Pix CNPJ`,
++  pixCPFInvalidText: `Pix CPF không hợp lệ`,
++  pixCPFEmptyText: `Pix CPF không được để trống`,
++  pixCPFLabel: `Pix CPF`,
++  pixCPFPlaceholder: `Nhập Pix CPF`,
++  pixKeyEmptyText: `Khóa Pix không được để trống`,
++  pixKeyPlaceholder: `Nhập khóa Pix`,
++  pixKeyLabel: `Khóa Pix`,
++  sourceBankAccountIdEmptyText: `ID tài khoản ngân hàng nguồn không được để trống`,
++  invalidCardHolderNameError: `Tên chủ thẻ không được chứa chữ số`,
++  cardHolderNameRequiredText: `Bắt buộc nhập tên chủ thẻ`,
++  lastNameRequiredText: `Bắt buộc nhập họ`,
++  mandatoryFieldText: `Trường này là bắt buộc`,
++  phoneInvalidText: `Vui lòng nhập số điện thoại hợp lệ`,
++  blikCodeInvalidText: `Vui lòng nhập mã Blik hợp lệ gồm 6 chữ số`,
++  invalidNickNameError: `Tên gợi nhớ không được chứa quá 2 chữ số`,
++  expiry: `hạn sử dụng`,
++  payment_methods_afterpay_clearpay: `After Pay`,
++  payment_methods_google_pay: `Google Pay`,
++  payment_methods_apple_pay: `Apple Pay`,
++  payment_methods_samsung_pay: "Samsung Pay",
++  payment_methods_mb_way: `Mb Way`,
++  payment_methods_mobile_pay: `Mobile Pay`,
++  payment_methods_ali_pay: `Alipay`,
++  payment_methods_ali_pay_hk: `AlipayHK`,
++  payment_methods_we_chat_pay: `WeChat`,
++  payment_methods_duit_now: `DuitNow`,
++  payment_methods_viet_qr: `VietQR`,
++  payment_methods_momo_atm: `MoMo ATM`,
++  payment_methods_local_bank_redirect: `Ngân hàng nội địa`,
++  payment_methods_revolut_pay: `Revolut Pay`,
++  payment_methods_affirm: `Affirm`,
++  payment_methods_pay_safe_card: `PaysafeCard`,
++  payment_methods_crypto_currency: `Tiền mã hóa`,
++  payment_methods_card: `Thẻ`,
++  payment_methods_klarna: `Klarna`,
++  payment_methods_sofort: `Sofort`,
++  payment_methods_ach_transfer: `Chuyển khoản ngân hàng ACH`,
++  payment_methods_bacs_transfer: `Chuyển khoản ngân hàng BACS`,
++  payment_methods_sepa_bank_transfer: `Chuyển khoản ngân hàng SEPA`,
++  payment_methods_instant_bank_transfer: `Chuyển khoản ngân hàng tức thì`,
++  payment_methods_instant_bank_transfer_finland: `Chuyển khoản ngân hàng tức thì Phần Lan`,
++  payment_methods_instant_bank_transfer_poland: `Chuyển khoản ngân hàng tức thì Ba Lan`,
++  payment_methods_sepa_debit: `Ghi nợ SEPA`,
++  payment_methods_giropay: `GiroPay`,
++  payment_methods_eps: `EPS`,
++  payment_methods_walley: `Walley`,
++  payment_methods_pay_bright: `Pay Bright`,
++  payment_methods_ach_debit: `Ghi nợ ACH`,
++  payment_methods_bacs_debit: `Ghi nợ BACS`,
++  payment_methods_becs_debit: `Ghi nợ BECS`,
++  payment_methods_blik: `Blik`,
++  payment_methods_trustly: `Trustly`,
++  payment_methods_bancontact_card: `Thẻ Bancontact`,
++  payment_methods_online_banking_czech_republic: `Ngân hàng trực tuyến Séc`,
++  payment_methods_online_banking_slovakia: `Ngân hàng trực tuyến Slovakia`,
++  payment_methods_online_banking_finland: `Ngân hàng trực tuyến Phần Lan`,
++  payment_methods_online_banking_poland: `Ngân hàng trực tuyến Ba Lan`,
++  payment_methods_ideal: `iDEAL | Wero`,
++  payment_methods_ban_connect: `Ban Connect`,
++  payment_methods_ach_bank_debit: `Ghi nợ trực tiếp ACH`,
++  payment_methods_przelewy24: `Przelewy24`,
++  payment_methods_interac: `Interac`,
++  payment_methods_twint: `Twint`,
++  payment_methods_vipps: `Vipps`,
++  payment_methods_dana: `Dana`,
++  payment_methods_go_pay: `Go Pay`,
++  payment_methods_kakao_pay: `Kakao Pay`,
++  payment_methods_gcash: `GCash`,
++  payment_methods_momo: `Ví MoMo`,
++  payment_methods_touch_n_go: `Touch N Go`,
++  payment_methods_bizum: `Bizum`,
++  payment_methods_classic: `Tiền mặt / Phiếu thanh toán`,
++  payment_methods_online_banking_fpx: `Ngân hàng trực tuyến FPX`,
++  payment_methods_online_banking_thailand: `Ngân hàng trực tuyến Thái Lan`,
++  payment_methods_alma: `Alma`,
++  payment_methods_atome: `Atome`,
++  payment_methods_multibanco_transfer: `Multibanco`,
++  payment_methods_card_redirect: `Thẻ`,
++  payment_methods_pay_by_bank: `Thanh toán qua ngân hàng`,
++  payment_methods_open_banking_pis: `Ngân hàng mở (Open Banking)`,
++  payment_methods_evoucher: `Phiếu điện tử (E-Voucher)`,
++  payment_methods_pix_transfer: `Pix`,
++  payment_methods_pix_emv_transfer: `PixEmv`,
++  payment_methods_boleto: `Boleto`,
++  payment_methods_paypal: `Paypal`,
++  payment_methods_local_bank_transfer_transfer: `Union Pay`,
++  payment_methods_mifinity: `Mifinity`,
++  payment_methods_upi_collect: `UPI Collect`,
++  payment_methods_eft: `EFT`,
++  payment_methods_givex: `Givex`,
++  payment_methods_saved_methods: `Đã lưu`,
++  giftCardSectionTitle: `Bạn có thẻ quà tặng?`,
++  giftCardNumberLabel: `Số thẻ quà tặng`,
++  giftCardNumberPlaceholder: `ABCD1234EFGH5678`,
++  giftCardNumberEmptyText: `Số thẻ quà tặng không được để trống`,
++  giftCardNumberInvalidText: `Số thẻ quà tặng không hợp lệ`,
++  cardText: `Thẻ`,
++  giftCardAppliedText: `đã áp dụng`,
++  giftCardPinLabel: `Mã PIN thẻ quà tặng`,
++  giftCardPinPlaceholder: `123456`,
++  giftCardPinEmptyText: `Mã PIN thẻ quà tặng không được để trống`,
++  giftCardPinInvalidText: `Mã PIN thẻ quà tặng không hợp lệ`,
++  giftCardPaymentCompleteMessage: `Không còn số tiền cần thanh toán. Vui lòng tiếp tục thanh toán.`,
++  giftCardPaymentRemainingMessage: (currency, amount) =>
++    `Thanh toán số tiền còn lại ${currency} ${amount} bằng phương thức thanh toán khác bên dưới.`,
++  installmentPayInInstallments: "Thanh toán trả góp",
++  installmentInterestFree: "Không lãi suất",
++  installmentWithInterest: "có lãi suất",
++  installmentTotal: "Tổng cộng",
++  installmentSelectPlanError: "Vui lòng chọn một gói trả góp",
++  installmentSelectPlanPlaceholder: "Chọn gói trả góp",
++  showMore: "Xem thêm",
++  showLess: "Thu gọn",
++  refreshingText: "Đang làm mới...",
++  paymentDetailsBeingCheckedText: "Đang kiểm tra thông tin thanh toán. Vui lòng chờ",
++  eligibleOffersText: "Ưu đãi áp dụng được",
++  checkingEligibleOffersText: "Đang kiểm tra ưu đãi áp dụng được",
++  cardOfferText: "Ưu đãi thẻ",
++  offerAppliedText: "Đã áp dụng",
++}
