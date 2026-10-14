@@ -24,7 +24,11 @@ for path in FILES:
             target = match.group(1)
             if target.startswith(("http://", "https://", "mailto:")):
                 continue
-            if not os.path.exists(os.path.normpath(os.path.join(base, target))):
+            resolved = os.path.normpath(os.path.join(base, target))
+            # upstream/* are git submodules; they are not checked out in every CI job
+            if resolved == "upstream" or resolved.startswith("upstream" + os.sep):
+                continue
+            if not os.path.exists(resolved):
                 broken.append(f"{path}: {target}")
 
 for item in broken:
