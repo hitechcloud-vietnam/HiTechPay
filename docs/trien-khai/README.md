@@ -5,6 +5,7 @@ cấu hình các cổng thanh toán Việt Nam, tích hợp cho merchant và v�
 
 | # | Tài liệu | Dành cho | Nội dung |
 |---|---|---|---|
+| 0 | [Khởi động nhanh](00-khoi-dong-nhanh.md) | Người mới | Cài đặt 1 lệnh, kiểm tra, tạo merchant, giao dịch thử |
 | 1 | [Chuẩn bị](01-chuan-bi.md) | DevOps, quản lý dự án | Phần cứng, tên miền, tài khoản cổng thanh toán, sinh secret |
 | 2 | [Một máy chủ — Docker Compose](02-docker-compose.md) | DevOps | Cài đặt từ A–Z trên Ubuntu, TLS, systemd, sao lưu |
 | 3 | [Kubernetes — Helm](03-kubernetes-helm.md) | DevOps / SRE | Cluster, image GHCR, secret, ingress, nâng cấp |
@@ -12,6 +13,27 @@ cấu hình các cổng thanh toán Việt Nam, tích hợp cho merchant và v�
 | 5 | [Tích hợp cho merchant](05-tich-hop-merchant.md) | Lập trình viên merchant | API key, tạo thanh toán, SDK web/mobile, webhook, plugin |
 | 6 | [Vận hành](06-van-hanh.md) | SRE | Giám sát, log, sao lưu/khôi phục, xoay khoá, mở rộng, nâng cấp, xử lý sự cố |
 | 7 | [Checklist go-live](07-checklist-go-live.md) | Tất cả | Bảo mật, pháp lý, kiểm thử trước khi nhận tiền thật |
+| 8 | [Tham chiếu cấu hình](08-cau-hinh-tham-chieu.md) | DevOps | File cấu hình, biến môi trường, ghi đè router, khoá Helm, cổng mạng |
+| 9 | [Bảo mật & hardening](09-bao-mat.md) | DevOps / Bảo mật | Mô hình mối đe doạ, checklist máy chủ/ứng dụng, TLS, PCI DSS, xử lý lộ khoá |
+
+## Script hỗ trợ
+
+| Script | Việc |
+|---|---|
+| `scripts/install-ubuntu.sh` | Cài đặt trọn gói 1 máy chủ (Docker, build/pull, nginx + TLS, systemd, backup, firewall) |
+| `scripts/smoke-test.sh` | Kiểm tra sau triển khai (health, DB/Redis, dashboard, SDK) |
+| `scripts/bootstrap-merchant.sh` | Tạo merchant + API key qua admin API |
+| `scripts/backup-db.sh` / `scripts/restore-db.sh` | Sao lưu / khôi phục PostgreSQL (tuỳ chọn S3) |
+| `scripts/bootstrap.sh`, `apply-patches.sh`, `prepare-docker-context.sh` | Lấy upstream, áp patch, chuẩn bị build Docker |
+
+## File triển khai
+
+| File | Việc |
+|---|---|
+| `deploy/docker-compose.yml` | Stack đầy đủ |
+| `deploy/docker-compose.prod.yml` | Override production (127.0.0.1, không publish DB, log xoay vòng) |
+| `deploy/docker-compose.ghcr.yml` | Dùng image GHCR dựng sẵn |
+| `deploy/helm/values-hitechpay.yaml` | Kubernetes |
 
 ## Chọn mô hình triển khai
 

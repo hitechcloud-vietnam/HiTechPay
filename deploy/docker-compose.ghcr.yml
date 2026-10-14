@@ -1,0 +1,20 @@
+# Use the prebuilt images published by .github/workflows/images.yml instead of building locally.
+#   docker compose -f deploy/docker-compose.yml [-f deploy/docker-compose.prod.yml] \
+#     -f deploy/docker-compose.ghcr.yml --env-file deploy/.env --profile scheduler pull
+# Tag: HTP_IMAGE_TAG (default `main`; pin a release such as v0.1.0 in production).
+# Private packages need `docker login ghcr.io` first.
+services:
+  router:
+    image: ghcr.io/hitechcloud-vietnam/hitechpay-router:${HTP_IMAGE_TAG:-main}
+    build: !reset null
+  scheduler-consumer:
+    image: ghcr.io/hitechcloud-vietnam/hitechpay-scheduler:${HTP_IMAGE_TAG:-main}
+    build: !reset null
+  scheduler-producer:
+    image: ghcr.io/hitechcloud-vietnam/hitechpay-scheduler:${HTP_IMAGE_TAG:-main}
+  dashboard:
+    image: ghcr.io/hitechcloud-vietnam/hitechpay-dashboard:${HTP_IMAGE_TAG:-main}
+    build: !reset null
+  checkout-sdk:
+    image: ghcr.io/hitechcloud-vietnam/hitechpay-checkout-sdk:${HTP_IMAGE_TAG:-main}
+    build: !reset null

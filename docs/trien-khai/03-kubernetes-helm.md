@@ -93,8 +93,22 @@ hyperswitch-app:
         vnpay: { base_url: https://merchant.vnpay.vn/merchant_webapi/api/transaction }
         zalopay: { base_url: https://openapi.zalopay.vn/ }
         viettelmoney: { base_url: https://pay3.viettel.vn/PaymentAPI/webresources/postData }
-  # PostgreSQL / Redis managed — xem tên khoá chính xác trong
-  # upstream/hyperswitch-helm/charts/incubator/hyperswitch-app/values.yaml (externalPostgresql, externalRedis)
+  # PostgreSQL / Redis managed (khoá theo upstream/hyperswitch-helm/charts/hyperswitch-app/values.yaml)
+  postgresql: { enabled: false }
+  externalPostgresql:
+    enabled: true
+    primary:
+      host: pg.internal.example
+      auth:
+        username: hyperswitch
+        password: { _secretRef: { name: hitechpay-db, key: password } }
+        plainpassword: { _secretRef: { name: hitechpay-db, key: password } }
+        database: hyperswitch
+  redis: { enabled: false }
+  externalRedis:
+    enabled: true
+    host: redis.internal.example
+    port: "6379"
 hyperswitch-web:
   env:
     sdkEnv: prod

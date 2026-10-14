@@ -19,8 +19,8 @@ cAdvisor + Uptime Kuma cho mức cơ bản.
 ## 6.2 Log
 
 ```bash
-docker compose -f deploy/docker-compose.yml logs -f --since 30m router
-docker compose -f deploy/docker-compose.yml logs router | grep -i '"connector":"vnpay"' | tail
+$(cat deploy/.compose-cmd) logs -f --since 30m router
+$(cat deploy/.compose-cmd) logs router | grep -i '"connector":"vnpay"' | tail
 kubectl -n hitechpay logs deploy/hyperswitch-router -f            # tên deployment xem bằng kubectl get deploy
 ```
 
@@ -28,23 +28,16 @@ Log router là JSON, có `payment_id`, `attempt_id`, `connector`, `flow`. Khoá/
 
 ## 6.3 Sao lưu và khôi phục
 
-Sao lưu (hằng ngày, giữ ≥ 14 ngày, lưu ngoài máy chủ, mã hoá):
+| Việc | Lệnh |
+|---|---|
+| Sao lưu ngay | `BACKUP_DIR=/var/backups/hitechpay scripts/backup-db.sh` |
+| Sao lưu + đẩy S3 | `S3_URI=s3://bucket/hitechpay scripts/backup-db.sh` |
+| Lịch hằng ngày | `/etc/cron.d/hitechpay-backup` (do `install-ubuntu.sh` tạo, 02:15, giữ 14 ngày) |
+| Khôi phục | `scripts/restore-db.sh /var/backups/hitechpay/db-YYYYMMDD-HHMMSS.dump` |
+| Kubernetes / DB managed | Dùng snapshot + PITR của dịch vụ DB; hoặc `kubectl exec` vào pod postgres chạy `pg_dump -Fc` |
 
-```bash
-docker exec <pg-container> pg_dump -U db_user -Fc hyperswitch_db > db-$(date +%F).dump
-```
-
-Kèm theo: `deploy/.env` (hoặc secret K8s) — **master key bắt buộc** để đọc dữ liệu đã mã hoá.
-
-Khôi phục:
-
-```bash
-docker compose -f deploy/docker-compose.yml stop router scheduler-consumer scheduler-producer
-docker exec -i <pg-container> pg_restore -U db_user -d hyperswitch_db --clean --if-exists < db-2026-10-14.dump
-docker compose -f deploy/docker-compose.yml --profile scheduler up -d
-```
-
-Diễn tập khôi phục ít nhất mỗi quý trên máy thử.
+Kèm theo mọi bản sao lưu: `deploy/.env` (hoặc Secret K8s) — **master key bắt buộc** để đọc dữ liệu đã mã hoá.
+Diễn tập khôi phục ít nhất mỗi quý trên máy thử (khôi phục → `scripts/smoke-test.sh` → kiểm tra vài payment cũ).
 
 ## 6.4 Xoay khoá
 

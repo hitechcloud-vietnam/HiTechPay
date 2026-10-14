@@ -4,9 +4,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PATCH_DIR="$ROOT_DIR/patches"
+# shellcheck disable=SC2034  # used by the scripts that source this file
 BRANCH="hitechpay"
 
 # Upstream repositories that carry HiTechPay patches (directory names under upstream/)
+# shellcheck disable=SC2034
 PATCHED_REPOS=(hyperswitch hyperswitch-web hyperswitch-control-center hyperswitch-client-core hyperswitch-woocommerce-plugin)
 
 log() { printf '\033[1;34m[hitechpay]\033[0m %s\n' "$*"; }

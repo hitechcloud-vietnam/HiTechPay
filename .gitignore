@@ -5,3 +5,5 @@ vendor/
 *.log
 deploy/.env
 .DS_Store
+deploy/.compose-cmd
+backups/
