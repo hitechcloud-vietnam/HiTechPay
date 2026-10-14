@@ -1,0 +1,203 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 10:20:34 +0000
+Subject: [PATCH 3/3] feat(branding): white-label payment SDK as HiTechPay
+
+- the "Powered by" footer (HyperSwitchBranding) renders the localised
+  poweredBy string with the HiTechPay brand in bold instead of the
+  "Powered by Hyperswitch" image from the asset CDN; module name kept
+- rewrite user-visible "Hyperswitch" / "HyperSwitch" (and the Arabic /
+  Japanese transliterations) to "HiTechPay" in every fetched locale string
+  and in the English fallback (poweredBy, mandate texts)
+- page titles of the React Native Web entry points -> "HiTechPay Web"
+- the Australian BECS mandate (names a legal entity), module / package
+  names, native bridge names, JS globals, env variables and the
+  `.hyperswitch://` return URL scheme are intentionally unchanged
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014p7hcqtGKsGWvEUtmq6YEC
+
+diff --git a/reactNativeWeb/DemoApp/DemoAppIndex.html b/reactNativeWeb/DemoApp/DemoAppIndex.html
+index 7e92796..aa89798 100644
+--- a/reactNativeWeb/DemoApp/DemoAppIndex.html
++++ b/reactNativeWeb/DemoApp/DemoAppIndex.html
+@@ -6,7 +6,7 @@
+       name="viewport"
+       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+-    <title>HyperSwitch Web</title>
++    <title>HiTechPay Web</title>
+     <style>
+       body {
+         margin: 0;
+diff --git a/reactNativeWeb/index.html b/reactNativeWeb/index.html
+index e58b9ec..4e94f90 100644
+--- a/reactNativeWeb/index.html
++++ b/reactNativeWeb/index.html
+@@ -6,7 +6,7 @@
+       name="viewport"
+       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, target-densityDpi=device-dpi" />
+     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+-    <title>HyperSwitch Web</title>
++    <title>HiTechPay Web</title>
+     <style>
+       html, body {
+         width: 100%;
+diff --git a/reactNativeWeb/redirect.html b/reactNativeWeb/redirect.html
+index 29cb4e0..c05f70d 100644
+--- a/reactNativeWeb/redirect.html
++++ b/reactNativeWeb/redirect.html
+@@ -6,7 +6,7 @@
+       name="viewport"
+       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+-    <title>HyperSwitch Web</title>
++    <title>HiTechPay Web</title>
+     <style>
+       * {
+         margin: 0;
+diff --git a/src/components/elements/HyperSwitchBranding.res b/src/components/elements/HyperSwitchBranding.res
+index 2c50be7..6c54361 100644
+--- a/src/components/elements/HyperSwitchBranding.res
++++ b/src/components/elements/HyperSwitchBranding.res
+@@ -1,22 +1,35 @@
+ open ReactNative
+ open Style
++
++// HiTechPay: the "Powered by" footer is rendered from the (rebranded, localised) poweredBy string
++// instead of the upstream "Powered by Hyperswitch" image served by the asset CDN. The module name
++// is kept for compatibility.
+ @react.component
+ let make = () => {
+   let (nativeProp, _) = React.useContext(NativePropContext.nativePropContext)
+-  let (themeType, _) = React.useContext(ThemeContext.themeContext)
++  let localeObject = GetLocale.useGetLocalObj()
++
++  let poweredBy = localeObject.poweredBy->HiTechPayLocale.rebrand
++  let brand = HiTechPayLocale.brandName
++  let (prefix, suffix) = switch poweredBy->String.indexOfOpt(brand) {
++  | Some(index) => (
++      poweredBy->String.slice(~start=0, ~end=index),
++      poweredBy->String.sliceToEnd(~start=index + brand->String.length),
++    )
++  | None => (poweredBy ++ " ", "")
++  }
+ 
+   <>
+     <Space />
+     <UIUtils.RenderIf condition={!nativeProp.configuration.disableBranding}>
+       <View style={s({alignItems: #center})}>
+-        <Icon
+-          name={switch themeType {
+-          | Light(_) => "hyperswitch"
+-          | Dark(_) => "hyperswitchdark"
+-          }}
+-          width=180.
+-          height=20.
+-        />
++        <TextWrapper textType={ModalTextLight} overrideStyle=Some(s({fontSize: 12., opacity: 0.6}))>
++          {<>
++            {React.string(prefix)}
++            <Text style={s({fontWeight: #700})}> {React.string(brand)} </Text>
++            {React.string(suffix)}
++          </>}
++        </TextWrapper>
+       </View>
+     </UIUtils.RenderIf>
+   </>
+diff --git a/src/contexts/LocaleStringDataContext.res b/src/contexts/LocaleStringDataContext.res
+index fcbfba5..b6af188 100644
+--- a/src/contexts/LocaleStringDataContext.res
++++ b/src/contexts/LocaleStringDataContext.res
+@@ -1,6 +1,9 @@
+ type data = LocaleDataType.localeStrings
+ 
+-let localeDataContext = React.createContext((LocaleDataType.defaultLocale, (_: data => data) => ()))
++let localeDataContext = React.createContext((
++  S3ApiHook.brandedDefaultLocale,
++  (_: data => data) => (),
++))
+ 
+ module Provider = {
+   let make = React.Context.provider(localeDataContext)
+@@ -11,7 +14,7 @@ let make = (~children, ~locale, ~localeCode="") => {
+   // HiTechPay: the Vietnamese locale (vi / vi-VN) is bundled with the SDK and is not fetched.
+   let isVietnamese = HiTechPayLocale.isVietnamese(localeCode)
+   let (state, setState) = React.useState(_ =>
+-    isVietnamese ? VietnameseLocale.localeStrings : LocaleDataType.defaultLocale
++    isVietnamese ? VietnameseLocale.localeStrings : S3ApiHook.brandedDefaultLocale
+   )
+   let fetchDataFromS3WithGZipDecoding = S3ApiHook.useFetchDataFromS3WithGZipDecoding()
+   //getLocaleStringsFromJson
+diff --git a/src/hooks/S3ApiHook.res b/src/hooks/S3ApiHook.res
+index e55a572..3d164d0 100644
+--- a/src/hooks/S3ApiHook.res
++++ b/src/hooks/S3ApiHook.res
+@@ -670,10 +670,17 @@ let getLocaleStrings: Js.Json.t => localeStrings = data => {
+   }
+ }
+ 
++// HiTechPay: user-visible brand mentions are rewritten (see HiTechPayLocale.rebrand), including
++// the English fallback values used for keys missing from the fetched JSON.
++let rebrandLocaleStrings: localeStrings => localeStrings = strings =>
++  strings->Utils.getJsonObjectFromRecord->HiTechPayLocale.rebrandLocaleJson->getLocaleStrings
++
++let brandedDefaultLocale = defaultLocale->rebrandLocaleStrings
++
+ let getLocaleStringsFromJson: Js.Json.t => localeStrings = jsonData => {
+   switch jsonData->Js.Json.decodeObject {
+-  | Some(res) => getLocaleStrings(res->Utils.getJsonObjectFromRecord)
+-  | None => defaultLocale
++  | Some(res) => getLocaleStrings(res->Utils.getJsonObjectFromRecord)->rebrandLocaleStrings
++  | None => brandedDefaultLocale
+   }
+ }
+ 
+diff --git a/src/utility/locales/HiTechPayLocale.res b/src/utility/locales/HiTechPayLocale.res
+index 9de3e9c..c45782e 100644
+--- a/src/utility/locales/HiTechPayLocale.res
++++ b/src/utility/locales/HiTechPayLocale.res
+@@ -5,7 +5,8 @@
+ // HiTechPay keeps every change inside this repository instead:
+ //   - the Vietnamese locale is bundled (VietnameseLocale.res) and selected for `vi` / `vi-VN`;
+ //   - strings that the upstream record does not have (display names of the Vietnamese payment
+-//     methods, QR payment screen) are provided here for every supported locale.
++//     methods, QR payment screen) are provided here for every supported locale;
++//   - user-visible "Hyperswitch" brand mentions in fetched locale strings are rewritten.
+ 
+ let brandName = "HiTechPay"
+ 
+@@ -192,3 +193,33 @@ let vietnameseQrStrings = {
+ 
+ let getQrStrings = (localeCode: string) =>
+   isVietnamese(localeCode) ? vietnameseQrStrings : englishQrStrings
++
++// ---------------------------------------------------------------------------------------------
++// White-label: rewrite user-visible brand mentions in fetched locale strings.
++// The BECS (Australia) mandate names a legal entity and is kept unchanged.
++// ---------------------------------------------------------------------------------------------
++
++let rebrand = (str: string) =>
++  str
++  ->String.replaceAll("Hyperswitch", brandName)
++  ->String.replaceAll("HyperSwitch", brandName)
++  ->String.replaceAll("هيبيرسويتش", brandName)
++  ->String.replaceAll("ハイパースイッチ", brandName)
++
++let keysNotRebranded = ["becsDebitTerms"]
++
++let rebrandLocaleJson = (json: JSON.t) =>
++  switch json->JSON.Decode.object {
++  | Some(dict) =>
++    dict
++    ->Dict.toArray
++    ->Array.map(((key, value)) =>
++      switch (keysNotRebranded->Array.includes(key), value->JSON.Decode.string) {
++      | (false, Some(str)) => (key, str->rebrand->JSON.Encode.string)
++      | _ => (key, value)
++      }
++    )
++    ->Dict.fromArray
++    ->JSON.Encode.object
++  | None => json
++  }

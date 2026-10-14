@@ -1,0 +1,579 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 10:16:08 +0000
+Subject: [PATCH 1/3] feat(locale): add Vietnamese (vi / vi-VN) locale
+
+- bundle a full Vietnamese translation of LocaleDataType.localeStrings
+  (VietnameseLocale.res); it is selected for the vi / vi-VN / vi_VN
+  configuration locale and is not fetched from the asset CDN
+- keep the raw configured locale code in configuration.localeCode, since
+  LocaleDataType.localeTypes (shared-code submodule) has no Vietnamese
+  variant; send vi-VN as browser_info.language
+- add HiTechPayLocale with the display names of viet_qr, momo_atm,
+  local_bank_redirect and momo for every supported locale (VietQR,
+  MoMo ATM, Domestic bank / Ngan hang noi dia, MoMo / Vi MoMo) and the
+  English / Vietnamese strings of the QR payment screen
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014p7hcqtGKsGWvEUtmq6YEC
+
+diff --git a/src/contexts/LocaleStringDataContext.res b/src/contexts/LocaleStringDataContext.res
+index aa77d15..fcbfba5 100644
+--- a/src/contexts/LocaleStringDataContext.res
++++ b/src/contexts/LocaleStringDataContext.res
+@@ -7,46 +7,52 @@ module Provider = {
+ }
+ 
+ @react.component
+-let make = (~children, ~locale) => {
+-  let (state, setState) = React.useState(_ => LocaleDataType.defaultLocale)
++let make = (~children, ~locale, ~localeCode="") => {
++  // HiTechPay: the Vietnamese locale (vi / vi-VN) is bundled with the SDK and is not fetched.
++  let isVietnamese = HiTechPayLocale.isVietnamese(localeCode)
++  let (state, setState) = React.useState(_ =>
++    isVietnamese ? VietnameseLocale.localeStrings : LocaleDataType.defaultLocale
++  )
+   let fetchDataFromS3WithGZipDecoding = S3ApiHook.useFetchDataFromS3WithGZipDecoding()
+   //getLocaleStringsFromJson
+   let path = "/jsons/locales"
+   React.useEffect0(() => {
+-    fetchDataFromS3WithGZipDecoding(
+-      ~decodeJsonToRecord=S3ApiHook.getLocaleStringsFromJson,
+-      ~s3Path=`${path}/${LocaleDataType.localeTypeToString(locale)}.json`,
+-    )
+-    ->Promise.then(res => {
+-      switch res {
+-      | Some(data) =>
+-        setState(_ => data)
+-        Promise.resolve()
+-      | _ => Promise.reject(Exn.raiseError("API Failed"))
+-      }
+-    })
+-    ->Promise.catch(_ => {
++    if !isVietnamese {
+       fetchDataFromS3WithGZipDecoding(
+         ~decodeJsonToRecord=S3ApiHook.getLocaleStringsFromJson,
+-        ~s3Path=`${path}/${LocaleDataType.localeTypeToString(Some(En))}.json`,
++        ~s3Path=`${path}/${LocaleDataType.localeTypeToString(locale)}.json`,
+       )
+-      ->Promise.then(
+-        res => {
+-          switch res {
+-          | Some(data) =>
+-            setState(_ => data)
+-            Promise.resolve()
+-          | _ => Promise.reject(Exn.raiseError("API Failed"))
+-          }
+-        },
+-      )
+-      ->Promise.catch(
+-        _ => {
++      ->Promise.then(res => {
++        switch res {
++        | Some(data) =>
++          setState(_ => data)
+           Promise.resolve()
+-        },
+-      )
+-    })
+-    ->ignore
++        | _ => Promise.reject(Exn.raiseError("API Failed"))
++        }
++      })
++      ->Promise.catch(_ => {
++        fetchDataFromS3WithGZipDecoding(
++          ~decodeJsonToRecord=S3ApiHook.getLocaleStringsFromJson,
++          ~s3Path=`${path}/${LocaleDataType.localeTypeToString(Some(En))}.json`,
++        )
++        ->Promise.then(
++          res => {
++            switch res {
++            | Some(data) =>
++              setState(_ => data)
++              Promise.resolve()
++            | _ => Promise.reject(Exn.raiseError("API Failed"))
++            }
++          },
++        )
++        ->Promise.catch(
++          _ => {
++            Promise.resolve()
++          },
++        )
++      })
++      ->ignore
++    }
+     None
+   })
+ 
+diff --git a/src/headless/HeadlessUtils.res b/src/headless/HeadlessUtils.res
+index a8534db..41a0b63 100644
+--- a/src/headless/HeadlessUtils.res
++++ b/src/headless/HeadlessUtils.res
+@@ -401,7 +401,10 @@ let getBrowserInfo = (nativeProp: SdkTypes.nativeProp) => {
+   let browserInfo: PaymentConfirmTypes.online = {
+     user_agent: Utils.resolveUserAgent(~userAgent=nativeProp.sdkParams.userAgent),
+     accept_header: "text\/html,application\/xhtml+xml,application\/xml;q=0.9,image\/webp,image\/apng,*\/*;q=0.8",
+-    language: LocaleDataType.localeTypeToString(nativeProp.configuration.locale),
++    language: HiTechPayLocale.browserLanguage(
++      ~locale=nativeProp.configuration.locale,
++      ~localeCode=nativeProp.configuration.localeCode,
++    ),
+     color_depth: 32,
+     time_zone: Date.make()->Date.getTimezoneOffset,
+     java_enabled: true,
+diff --git a/src/routes/App.res b/src/routes/App.res
+index 7957dcb..ab17182 100644
+--- a/src/routes/App.res
++++ b/src/routes/App.res
+@@ -12,7 +12,8 @@ module ContextWrapper = {
+           ->Option.map(insets => insets.bottom)
+           ->Option.getOr(None)}>
+           <ThemeContext appearance=nativeProp.configuration.appearance>
+-            <LocaleStringDataContext locale=nativeProp.configuration.locale>
++            <LocaleStringDataContext
++              locale=nativeProp.configuration.locale localeCode=nativeProp.configuration.localeCode>
+               <CountryStateDataContext>
+                 <LoadingContext>
+                   <BannerContext> children </BannerContext>
+diff --git a/src/types/SdkTypes.res b/src/types/SdkTypes.res
+index 07941d2..31e0dc1 100644
+--- a/src/types/SdkTypes.res
++++ b/src/types/SdkTypes.res
+@@ -241,6 +241,9 @@ type configurationType = {
+   savedPaymentSheetHeaderLabel: option<string>,
+   netceteraSDKApiKey: option<string>,
+   locale: option<LocaleDataType.localeTypes>,
++  // HiTechPay: raw configured locale code (e.g. "vi-VN"); used for locales that are not part of
++  // LocaleDataType.localeTypes, such as the bundled Vietnamese locale.
++  localeCode: string,
+   subscribedEvents: array<PaymentEventTypes.events>,
+   customer: option<customerConfiguration>,
+   placeholder: placeholder,
+@@ -654,6 +657,7 @@ let parseConfigurationDict = (configObj: Dict.t<JSON.t>, displayPayButton) => {
+     | Some(str) => LocaleDataType.localeStringToType(str)
+     | None => Some(En)
+     },
++    localeCode: getOptionString(configObj, "locale")->Option.getOr("en"),
+     subscribedEvents: configObj
+     ->Dict.get("subscribedEvents")
+     ->Option.flatMap(JSON.Decode.array)
+diff --git a/src/utility/locales/HiTechPayLocale.res b/src/utility/locales/HiTechPayLocale.res
+new file mode 100644
+index 0000000..21514cb
+--- /dev/null
++++ b/src/utility/locales/HiTechPayLocale.res
+@@ -0,0 +1,186 @@
++// HiTechPay locale helpers.
++//
++// The upstream locale record (LocaleDataType.localeStrings) and its JSON files live in the shared
++// `shared-code` (hyperswitch-sdk-utils) submodule and are fetched from the asset CDN at runtime.
++// HiTechPay keeps every change inside this repository instead:
++//   - the Vietnamese locale is bundled (VietnameseLocale.res) and selected for `vi` / `vi-VN`;
++//   - strings that the upstream record does not have (display names of the Vietnamese payment
++//     methods, QR payment screen) are provided here for every supported locale.
++
++let brandName = "HiTechPay"
++
++let normalizeLocaleCode = (code: string) =>
++  code->String.trim->String.toLowerCase->String.replaceAll("_", "-")
++
++let isVietnamese = (code: string) => {
++  let normalized = code->normalizeLocaleCode
++  normalized == "vi" || normalized->String.startsWith("vi-")
++}
++
++// Language key of the tables below for a configured locale code (e.g. "vi-VN" -> "vi").
++let languageKey = (code: string) => {
++  switch code->normalizeLocaleCode {
++  | "zh-hant" | "zh-tw" | "zh-hk" | "zh-mo" | "tr-zh" => "zh-hant"
++  | "is" | "ls" => "is"
++  | "no" | "nb" | "nn" => "nb"
++  | "ni-be" | "nl-be" => "nl"
++  | normalized => normalized->String.split("-")->Array.get(0)->Option.getOr("en")
++  }
++}
++
++// Value sent as `browser_info.language`.
++let browserLanguage = (~locale: option<LocaleDataType.localeTypes>, ~localeCode: string) =>
++  isVietnamese(localeCode) ? "vi-VN" : LocaleDataType.localeTypeToString(locale)
++
++// ---------------------------------------------------------------------------------------------
++// Payment method display names (HiTechPay Vietnamese connectors), one entry per locale.
++// ---------------------------------------------------------------------------------------------
++
++type paymentMethodStrings = {
++  vietQr: string,
++  momoAtm: string,
++  localBankRedirect: string,
++  momo: string,
++}
++
++let englishPaymentMethodStrings = {
++  vietQr: "VietQR",
++  momoAtm: "MoMo ATM",
++  localBankRedirect: "Domestic bank",
++  momo: "MoMo",
++}
++
++let withLocalBank = localBankRedirect => {...englishPaymentMethodStrings, localBankRedirect}
++
++let paymentMethodStringsByLanguage: array<(string, paymentMethodStrings)> = [
++  ("en", englishPaymentMethodStrings),
++  (
++    "vi",
++    {
++      vietQr: "VietQR",
++      momoAtm: "MoMo ATM",
++      localBankRedirect: "Ngân hàng nội địa",
++      momo: "Ví MoMo",
++    },
++  ),
++  ("ar", withLocalBank("بنك محلي")),
++  ("bs", withLocalBank("Domaća banka")),
++  ("ca", withLocalBank("Banc nacional")),
++  ("cs", withLocalBank("Tuzemská banka")),
++  ("cy", withLocalBank("Banc domestig")),
++  ("da", withLocalBank("Indenlandsk bank")),
++  ("de", withLocalBank("Inländische Bank")),
++  ("el", withLocalBank("Εγχώρια τράπεζα")),
++  ("es", withLocalBank("Banco nacional")),
++  ("et", withLocalBank("Kodumaine pank")),
++  ("fi", withLocalBank("Kotimainen pankki")),
++  ("fr", withLocalBank("Banque locale")),
++  ("he", withLocalBank("בנק מקומי")),
++  ("is", withLocalBank("Innlendur banki")),
++  ("it", withLocalBank("Banca locale")),
++  ("ja", withLocalBank("国内銀行")),
++  ("lt", withLocalBank("Vietinis bankas")),
++  ("ms", withLocalBank("Bank tempatan")),
++  ("nb", withLocalBank("Innenlandsk bank")),
++  ("nl", withLocalBank("Binnenlandse bank")),
++  ("pl", withLocalBank("Bank krajowy")),
++  ("pt", withLocalBank("Banco nacional")),
++  ("ru", withLocalBank("Местный банк")),
++  ("sk", withLocalBank("Tuzemská banka")),
++  ("sv", withLocalBank("Inhemsk bank")),
++  ("tr", withLocalBank("Yerel banka")),
++  ("zh", withLocalBank("国内银行")),
++  ("zh-hant", withLocalBank("國內銀行")),
++]
++
++let paymentMethodStringsDict = paymentMethodStringsByLanguage->Dict.fromArray
++
++let getPaymentMethodStrings = (localeCode: string) =>
++  paymentMethodStringsDict
++  ->Dict.get(localeCode->languageKey)
++  ->Option.getOr(englishPaymentMethodStrings)
++
++let hiTechPayPaymentMethodTypes = ["viet_qr", "momo_atm", "local_bank_redirect", "momo"]
++
++let getPaymentMethodDisplayName = (~localeCode: string, paymentMethodType: string) => {
++  let strings = getPaymentMethodStrings(localeCode)
++  switch paymentMethodType {
++  | "viet_qr" => strings.vietQr
++  | "momo_atm" => strings.momoAtm
++  | "local_bank_redirect" => strings.localBankRedirect
++  | "momo" => strings.momo
++  | other => other->CommonUtils.getDisplayName
++  }
++}
++
++let useGetPaymentMethodDisplayName = () => {
++  let (nativeProp, _) = React.useContext(NativePropContext.nativePropContext)
++  paymentMethodType =>
++    getPaymentMethodDisplayName(~localeCode=nativeProp.configuration.localeCode, paymentMethodType)
++}
++
++// Tabs and buttons use the display name as icon name; map every (localised) label and payment
++// method type of the HiTechPay methods to a bundled icon key.
++let iconKeyByName = {
++  let dict = Dict.make()
++  let add = (name, key) => dict->Dict.set(name->normalizeLocaleCode, key)
++  paymentMethodStringsByLanguage->Array.forEach(((_, strings)) => {
++    add(strings.vietQr, "vietqr")
++    add(strings.momoAtm, "momoatm")
++    add(strings.localBankRedirect, "localbankredirect")
++    add(strings.momo, "momo")
++  })
++  add("viet_qr", "vietqr")
++  add("momo_atm", "momoatm")
++  add("local_bank_redirect", "localbankredirect")
++  add("momo", "momo")
++  dict
++}
++
++let getIconKey = (name: string) => iconKeyByName->Dict.get(name->normalizeLocaleCode)
++
++// ---------------------------------------------------------------------------------------------
++// QR payment screen (next_action.type = "qr_code_information").
++// ---------------------------------------------------------------------------------------------
++
++type qrStrings = {
++  qrTitle: string,
++  qrInstructions: string,
++  qrExpiresIn: string,
++  qrExpired: string,
++  qrCheckStatus: string,
++  qrCheckingStatus: string,
++  qrNotReceived: string,
++  qrCancel: string,
++  qrCopyCode: string,
++  qrCopied: string,
++}
++
++let englishQrStrings = {
++  qrTitle: "Scan to pay",
++  qrInstructions: "Open your banking or e-wallet app and scan this QR code to complete the payment.",
++  qrExpiresIn: "QR code expires in",
++  qrExpired: "The QR code has expired. Please try again.",
++  qrCheckStatus: "I have completed the payment",
++  qrCheckingStatus: "Checking payment status...",
++  qrNotReceived: "We have not received your payment yet. Please wait a moment and check again.",
++  qrCancel: "Cancel",
++  qrCopyCode: "Copy QR code data",
++  qrCopied: "Copied",
++}
++
++let vietnameseQrStrings = {
++  qrTitle: "Quét mã để thanh toán",
++  qrInstructions: "Mở ứng dụng ngân hàng hoặc ví điện tử và quét mã QR này để hoàn tất thanh toán.",
++  qrExpiresIn: "Mã QR hết hạn sau",
++  qrExpired: "Mã QR đã hết hạn. Vui lòng thử lại.",
++  qrCheckStatus: "Tôi đã thanh toán",
++  qrCheckingStatus: "Đang kiểm tra trạng thái thanh toán...",
++  qrNotReceived: "Chúng tôi chưa nhận được thanh toán của bạn. Vui lòng đợi giây lát rồi kiểm tra lại.",
++  qrCancel: "Hủy",
++  qrCopyCode: "Sao chép dữ liệu mã QR",
++  qrCopied: "Đã sao chép",
++}
++
++let getQrStrings = (localeCode: string) =>
++  isVietnamese(localeCode) ? vietnameseQrStrings : englishQrStrings
+diff --git a/src/utility/locales/VietnameseLocale.res b/src/utility/locales/VietnameseLocale.res
+new file mode 100644
+index 0000000..4d5dc9c
+--- /dev/null
++++ b/src/utility/locales/VietnameseLocale.res
+@@ -0,0 +1,193 @@
++// HiTechPay: Vietnamese (vi / vi-VN) locale, bundled with the SDK so that it works even when the
++// asset CDN does not serve `jsons/locales/vi.json`. Every key of LocaleDataType.localeStrings is
++// translated (the compiler enforces completeness: this record has no spread).
++let localeStrings: LocaleDataType.localeStrings = {
++  locale: "vi",
++  localeDirection: "ltr",
++  cardNumberLabel: "Số thẻ",
++  cardDetailsLabel: "Thông tin thẻ",
++  inValidCardErrorText: "Số thẻ không hợp lệ.",
++  inCompleteCVCErrorText: "Mã bảo mật của thẻ chưa đầy đủ.",
++  inValidCVCErrorText: "Mã bảo mật của thẻ không hợp lệ.",
++  inCompleteExpiryErrorText: "Ngày hết hạn của thẻ chưa đầy đủ.",
++  inValidExpiryErrorText: "Ngày hết hạn của thẻ không hợp lệ.",
++  pastExpiryErrorText: "Ngày hết hạn của thẻ không hợp lệ",
++  poweredBy: "Cung cấp bởi HiTechPay",
++  validThruText: "Hết hạn",
++  sortCodeText: "Mã chi nhánh (Sort Code)",
++  accountNumberText: "Số tài khoản",
++  cvcTextLabel: "CVC",
++  emailLabel: "Email",
++  emailInvalidText: "Địa chỉ email không hợp lệ",
++  emailEmptyText: "Email không được để trống",
++  line1Label: "Địa chỉ dòng 1",
++  line1Placeholder: "Số nhà, tên đường",
++  line1EmptyText: "Địa chỉ dòng 1 không được để trống",
++  line2Label: "Địa chỉ dòng 2",
++  line2Placeholder: "Căn hộ, tầng, tòa nhà, v.v. (không bắt buộc)",
++  cityLabel: "Thành phố",
++  cityEmptyText: "Thành phố không được để trống",
++  postalCodeLabel: "Mã bưu chính",
++  postalCodeEmptyText: "Mã bưu chính không được để trống",
++  stateLabel: "Tỉnh/Thành",
++  fullNameLabel: "Họ và tên",
++  fullNamePlaceholder: "Họ và tên",
++  countryLabel: "Quốc gia",
++  currencyLabel: "Tiền tệ",
++  bankLabel: "Chọn ngân hàng",
++  redirectText: "Sau khi gửi đơn hàng, bạn sẽ được chuyển hướng để hoàn tất thanh toán một cách an toàn.",
++  bankDetailsText: "Sau khi gửi các thông tin này, bạn sẽ nhận được thông tin tài khoản ngân hàng để thanh toán. Vui lòng ghi lại các thông tin đó.",
++  orPayUsing: "Hoặc thanh toán bằng",
++  addNewCard: "Thêm thẻ tín dụng/ghi nợ",
++  useExisitingSavedCards: "Dùng phương thức thanh toán đã lưu",
++  saveCardDetails: "Lưu thông tin thẻ",
++  addBankAccount: "Thêm tài khoản ngân hàng",
++  payNowButton: "Thanh toán ngay",
++  cardNumberEmptyText: "Số thẻ không được để trống",
++  cardExpiryDateEmptyText: "Ngày hết hạn của thẻ không được để trống",
++  cvcNumberEmptyText: "Mã CVC không được để trống",
++  enterFieldsText: "Vui lòng nhập tất cả các trường",
++  enterValidDetailsText: "Vui lòng nhập thông tin hợp lệ",
++  card: "Thẻ",
++  billingNameLabel: "Tên thanh toán",
++  cardHolderName: "Tên chủ thẻ",
++  cardNickname: "Tên gợi nhớ của thẻ",
++  billingNamePlaceholder: "Họ và tên",
++  firstName: "Tên",
++  lastName: "Họ",
++  billingDetails: "Thông tin thanh toán",
++  requiredText: "Bắt buộc",
++  cardHolderNameRequiredText: "Bắt buộc nhập tên chủ thẻ",
++  invalidDigitsCardHolderNameError: "Tên chủ thẻ không được chứa chữ số",
++  lastNameRequiredText: "Bắt buộc nhập họ",
++  nickNameLengthExceedError: "Tên gợi nhớ không được dài quá 12 ký tự",
++  invalidDigitsNickNameError: "Tên gợi nhớ không được chứa quá 2 chữ số",
++  cardExpiresText: "hết hạn",
++  addPaymentMethodLabel: "Thêm phương thức thanh toán mới",
++  walletDisclaimer: "Thông tin ví sẽ được lưu khi bạn chọn",
++  deletePaymentMethod: "Xóa",
++  enterValidCardNumberErrorText: "Vui lòng nhập số thẻ hợp lệ.",
++  line2EmptyText: "Địa chỉ dòng 2 không được để trống.",
++  postalCodeInvalidText: "Mã bưu chính không hợp lệ.",
++  stateEmptyText: "Tỉnh/Thành không được để trống.",
++  ibanEmptyText: "IBAN không được để trống.",
++  selectPaymentMethodText: "Vui lòng chọn một phương thức thanh toán và thử lại.",
++  achBankDebitTermsPart1: "Ủy quyền ghi nợ ACH của bạn sẽ được thiết lập ngay bây giờ, nhưng chúng tôi sẽ xác nhận số tiền và thông báo cho bạn trước khi thực hiện các khoản thanh toán trong tương lai.",
++  achBankDebitTermsPart2: "",
++  sepaDebitTermsPart1: "Bằng việc cung cấp thông tin thanh toán và xác nhận mẫu ủy nhiệm này, bạn ủy quyền cho (A) ",
++  sepaDebitTermsPart2: ", Bên nhận tiền và/hoặc (các) nhà cung cấp dịch vụ thanh toán của chúng tôi gửi chỉ thị tới ngân hàng của bạn để ghi nợ tài khoản của bạn và (B) ngân hàng của bạn ghi nợ tài khoản theo chỉ thị từ ",
++  sepaDebitTermsPart3: ". Trong phạm vi quyền lợi của mình, bạn có quyền được ngân hàng hoàn tiền theo các điều khoản và điều kiện của thỏa thuận giữa bạn và ngân hàng. Yêu cầu hoàn tiền phải được gửi trong vòng 8 tuần kể từ ngày tài khoản của bạn bị ghi nợ. Quyền của bạn được giải thích trong văn bản mà bạn có thể nhận từ ngân hàng của mình.",
++  // The BECS (Australia) mandate names a legal entity and is intentionally not rebranded.
++  becsDebitTerms: "Bằng việc cung cấp thông tin tài khoản ngân hàng và xác nhận khoản thanh toán này, bạn đồng ý với Yêu cầu Ghi nợ Trực tiếp này và thỏa thuận dịch vụ Yêu cầu Ghi nợ Trực tiếp, đồng thời ủy quyền cho Hyperswitch Payments Australia Pty Ltd ACN 160 180 343, mã người dùng Ghi nợ Trực tiếp 507156 (\"Hyperswitch\") ghi nợ tài khoản của bạn thông qua Hệ thống Thanh toán Bù trừ Điện tử Hàng loạt (BECS) thay mặt cho Hyperswitch Payment Widget (\"Người bán\") đối với bất kỳ khoản tiền nào được Người bán thông báo riêng cho bạn. Bạn xác nhận rằng bạn là chủ tài khoản hoặc người ký được ủy quyền của tài khoản nêu trên.",
++  surchargeMsgAmountPart1: "Phụ phí ",
++  surchargeMsgAmountPart2: " sẽ được áp dụng cho giao dịch này.",
++  surchargeMsgAmountForCardPart1: "Phụ phí tối đa ",
++  surchargeMsgAmountForCardPart2: " sẽ được áp dụng cho giao dịch này.",
++  surchargeMsgAmountForOneClickWallets: "Có áp dụng phụ phí.",
++  on: "vào",
++  \"and": "và",
++  nameEmptyText: "Vui lòng cung cấp tên của bạn.",
++  completeNameEmptyText: "Vui lòng cung cấp đầy đủ họ tên của bạn.",
++  billingDetailsText: "Thông tin thanh toán",
++  socialSecurityNumberLabel: "Số an sinh xã hội",
++  saveWalletDetails: "Thông tin ví sẽ được lưu khi bạn chọn.",
++  morePaymentMethods: "Phương thức thanh toán khác",
++  useExistingPaymentMethods: "Dùng phương thức thanh toán đã lưu",
++  nicknamePlaceholder: "Tên gợi nhớ của thẻ (Không bắt buộc)",
++  cardExpiredText: "Thẻ này đã hết hạn.",
++  cardHeader: "Thông tin thẻ",
++  cardBrandConfiguredErrorText: " hiện chưa được hỗ trợ.",
++  currencyNetwork: "Mạng lưới tiền tệ",
++  expiryPlaceholder: "MM / YY",
++  dateOfBirth: "Ngày sinh",
++  vpaIdLabel: "Mã VPA",
++  vpaIdEmptyText: "Mã VPA không được để trống.",
++  vpaIdInvalidText: "Mã VPA không hợp lệ.",
++  dateofBirthRequiredText: "Bắt buộc nhập ngày sinh.",
++  dateOfBirthInvalidText: "Tuổi phải từ 18 trở lên.",
++  dateOfBirthPlaceholderText: "Nhập ngày sinh.",
++  formFundsInfoText: "Tiền sẽ được chuyển vào tài khoản này.",
++  formFundsCreditInfoTextPart1: "Tiền của bạn sẽ được chuyển vào ",
++  formFundsCreditInfoTextPart2: " đã chọn.",
++  formEditText: "Chỉnh sửa",
++  formSaveText: "Lưu",
++  formSubmitText: "Gửi",
++  formSubmittingText: "Đang gửi",
++  formSubheaderBillingDetailsText: "Nhập địa chỉ thanh toán của bạn.",
++  formSubheaderCardText: "Thông tin thẻ của bạn.",
++  formSubheaderAccountTextPart1: "Tài khoản của bạn.",
++  formSubheaderAccountTextPart2: "",
++  formHeaderReviewText: "Xem lại",
++  formHeaderReviewTabLayoutTextPart1: "Xem lại thông tin ",
++  formHeaderReviewTabLayoutTextPart2: " của bạn.",
++  formHeaderBankTextPart1: "Nhập thông tin ngân hàng ",
++  formHeaderBankTextPart2: ".",
++  formHeaderWalletTextPart1: "Nhập thông tin ví ",
++  formHeaderWalletTextPart2: ".",
++  formHeaderEnterCardText: "Nhập thông tin thẻ.",
++  formHeaderSelectBankText: "Chọn phương thức ngân hàng.",
++  formHeaderSelectWalletText: "Chọn ví.",
++  formHeaderSelectAccountText: "Chọn tài khoản nhận tiền chi trả.",
++  formFieldACHRoutingNumberLabel: "Số định tuyến (Routing Number)",
++  formFieldSepaIbanLabel: "Số tài khoản ngân hàng quốc tế (IBAN)",
++  formFieldSepaBicLabel: "Mã định danh ngân hàng - BIC (Không bắt buộc)",
++  formFieldPixIdLabel: "Pix ID",
++  formFieldBankAccountNumberLabel: "Số tài khoản ngân hàng",
++  formFieldPhoneNumberLabel: "Số điện thoại",
++  formFieldCountryCodeLabel: "Mã quốc gia (Không bắt buộc)",
++  formFieldBankNameLabel: "Tên ngân hàng (Không bắt buộc)",
++  formFieldBankCityLabel: "Thành phố của ngân hàng (Không bắt buộc)",
++  formFieldCardHoldernamePlaceholder: "Tên của bạn",
++  formFieldBankNamePlaceholder: "Tên ngân hàng",
++  formFieldBankCityPlaceholder: "Thành phố của ngân hàng",
++  formFieldEmailPlaceholder: "Email của bạn",
++  formFieldPhoneNumberPlaceholder: "Số điện thoại của bạn",
++  formFieldInvalidRoutingNumber: "Số định tuyến không hợp lệ.",
++  infoCardRefId: "Mã tham chiếu",
++  infoCardErrCode: "Mã lỗi",
++  infoCardErrMsg: "Thông báo lỗi",
++  infoCardErrReason: "Lý do",
++  linkRedirectionTextPart1: "Đang chuyển hướng sau ",
++  linkRedirectionTextPart2: " giây ...",
++  linkExpiryInfoPart1: "Liên kết hết hạn vào: ",
++  linkExpiryInfoPart2: "",
++  payoutFromTextPart1: "Khoản chi trả từ ",
++  payoutFromTextPart2: "",
++  payoutStatusFailedMessage: "Không thể xử lý khoản chi trả của bạn. Vui lòng liên hệ nhà cung cấp để biết thêm chi tiết.",
++  payoutStatusPendingMessage: "Khoản chi trả của bạn sẽ được xử lý trong vòng 2-3 ngày làm việc.",
++  payoutStatusSuccessMessage: "Chi trả thành công. Tiền đã được chuyển vào phương thức thanh toán bạn đã chọn.",
++  payoutStatusFailedText: "Chi trả thất bại",
++  payoutStatusPendingText: "Đang xử lý chi trả",
++  payoutStatusSuccessText: "Chi trả thành công",
++  pixCNPJInvalidText: "Pix CNPJ không hợp lệ.",
++  pixCNPJEmptyText: "Pix CNPJ không được để trống.",
++  pixCNPJLabel: "Pix CNPJ",
++  pixCNPJPlaceholder: "Nhập Pix CNPJ.",
++  pixCPFInvalidText: "Pix CPF không hợp lệ.",
++  pixCPFEmptyText: "Pix CPF không được để trống.",
++  pixCPFLabel: "Pix CPF",
++  pixCPFPlaceholder: "Nhập Pix CPF.",
++  pixKeyEmptyText: "Khóa Pix không được để trống.",
++  pixKeyPlaceholder: "Nhập khóa Pix.",
++  pixKeyLabel: "Khóa Pix",
++  invalidCardHolderNameError: "Tên chủ thẻ không được chứa chữ số.",
++  invalidNickNameError: "Tên gợi nhớ không được chứa quá 2 chữ số.",
++  cardTermsPart1: "Bằng việc cung cấp thông tin thẻ, bạn cho phép ",
++  cardTermsPart2: " trừ tiền từ thẻ của bạn cho các khoản thanh toán trong tương lai theo các điều khoản của họ.",
++  useExisitingSavedCardsWeb: "Dùng thẻ tín dụng/ghi nợ đã lưu.",
++  unsupportedCardErrorText: "Thương hiệu thẻ không được hỗ trợ.",
++  selectCardBrand: "Chọn thương hiệu thẻ",
++  enterValidDigitsText: "Vui lòng nhập đúng",
++  digitsText: " chữ số",
++  enterValidIban: "Vui lòng nhập IBAN hợp lệ",
++  mandatoryFieldText: "Trường này là bắt buộc",
++  disclaimerTextAchTransfer: "Vui lòng ghi lại các thông tin này. Bạn sẽ không thể tạo lại các thông tin này.",
++  instructionalTextOfAchTransfer: "Sử dụng thông tin dưới đây để chuyển khoản",
++  accountDetailsText: "Thông tin tài khoản",
++  achBankTransferText: "Chuyển khoản ngân hàng ACH",
++  bankName: "Tên ngân hàng",
++  swiftCode: "Mã SWIFT",
++  doneText: "Xong",
++  copyToClipboard: "Sao chép",
++  cardNotEligibleText: "Thẻ này không được chấp nhận cho khoản thanh toán này.",
++}
+diff --git a/src/utility/logics/PaymentUtils.res b/src/utility/logics/PaymentUtils.res
+index 6e97dd3..cb8ba49 100644
+--- a/src/utility/logics/PaymentUtils.res
++++ b/src/utility/logics/PaymentUtils.res
+@@ -66,7 +66,10 @@ let generateCardConfirmBody = (
+     browser_info: {
+       user_agent: Utils.resolveUserAgent(~userAgent=nativeProp.sdkParams.userAgent),
+       accept_header: "text\/html,application\/xhtml+xml,application\/xml;q=0.9,image\/webp,image\/apng,*\/*;q=0.8",
+-      language: LocaleDataType.localeTypeToString(nativeProp.configuration.locale),
++      language: HiTechPayLocale.browserLanguage(
++        ~locale=nativeProp.configuration.locale,
++        ~localeCode=nativeProp.configuration.localeCode,
++      ),
+       color_depth: 32,
+       screen_height: ?screen_height->Option.map(Int.fromFloat),
+       screen_width: ?screen_width->Option.map(Int.fromFloat),
+@@ -122,7 +125,10 @@ let generateSavedCardConfirmBody = (
+   browser_info: {
+     user_agent: Utils.resolveUserAgent(~userAgent=nativeProp.sdkParams.userAgent),
+     accept_header: "text\/html,application\/xhtml+xml,application\/xml;q=0.9,image\/webp,image\/apng,*\/*;q=0.8",
+-    language: LocaleDataType.localeTypeToString(nativeProp.configuration.locale),
++    language: HiTechPayLocale.browserLanguage(
++      ~locale=nativeProp.configuration.locale,
++      ~localeCode=nativeProp.configuration.localeCode,
++    ),
+     color_depth: 32,
+     screen_height: ?screen_height->Option.map(Int.fromFloat),
+     screen_width: ?screen_width->Option.map(Int.fromFloat),
