@@ -75,6 +75,26 @@ jobs:
           cargo test -p hyperswitch_connectors --features "v1 payouts frm" --lib --
           vn_utils momo vnpay zalopay payos sepay pay2s viettelmoney
 
+  deploy-lint:
+    name: Deploy scripts, compose files and docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: shellcheck -S warning -x scripts/*.sh
+      - name: Docker Compose files are valid
+        run: |
+          cp deploy/.env.example /tmp/ci.env
+          check() {
+            docker compose -f deploy/docker-compose.yml "$@" --env-file /tmp/ci.env \
+              --profile scheduler --profile gateway --profile bootstrap config -q
+          }
+          check
+          check -f deploy/docker-compose.prod.yml
+          check -f deploy/docker-compose.prod.yml -f deploy/docker-compose.ghcr.yml
+      - name: Documentation links
+        run: python3 tools/check_doc_links.py
+
   sdk-node:
     name: Node SDK
     runs-on: ubuntu-latest
