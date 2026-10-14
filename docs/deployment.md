@@ -1,5 +1,7 @@
 # Triển khai / Deployment
 
+> 📘 **Hướng dẫn triển khai chi tiết từng bước:** [docs/trien-khai/](trien-khai/README.md) — chuẩn bị, Docker Compose, Kubernetes, cấu hình cổng thanh toán, tích hợp merchant, vận hành, checklist go-live.
+
 ## Yêu cầu
 Docker 24+ với Compose v2, 4 vCPU / 8 GB RAM (build router lần đầu cần ~30–60 phút và ~20 GB đĩa).
 
