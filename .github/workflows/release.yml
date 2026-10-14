@@ -1,0 +1,95 @@
+name: Release
+
+# Push a tag `vX.Y.Z` on main to publish a GitHub Release with the release notes from
+# CHANGELOG.md and ready-to-use artifacts. Container images for the same tag are built by
+# images.yml (it also triggers on `v*` tags).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)publish, e.g. v0.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  GIT_AUTHOR_NAME: hitechpay-ci
+  GIT_AUTHOR_EMAIL: ci@hitechpay.vn
+  GIT_COMMITTER_NAME: hitechpay-ci
+  GIT_COMMITTER_EMAIL: ci@hitechpay.vn
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          version="${{ steps.tag.outputs.tag }}"
+          version="${version#v}"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "Không tìm thấy mục [$version] trong CHANGELOG.md" >&2
+            exit 1
+          fi
+          cat release-notes.md
+
+      - name: Fetch and patch the WooCommerce plugin
+        run: |
+          git submodule update --init --depth 1 upstream/hyperswitch-woocommerce-plugin
+          scripts/apply-patches.sh hyperswitch-woocommerce-plugin
+
+      - name: Build artifacts
+        run: |
+          set -euo pipefail
+          tag="${{ steps.tag.outputs.tag }}"
+          mkdir -p dist
+
+          # HiTechPay patch series + helper scripts (apply on top of the pinned upstream commits)
+          tar czf "dist/hitechpay-patches-${tag}.tar.gz" patches scripts tools branding
+
+          # Deployment bundle (docker compose, nginx, helm values, docs)
+          tar czf "dist/hitechpay-deploy-${tag}.tar.gz" deploy docs README.md plan.md
+
+          # Node SDK (npm package tarball)
+          (cd sdks/node && npm install --no-audit --no-fund && npm test && npm run build && npm pack --pack-destination ../../dist)
+
+          # PHP SDK
+          (cd sdks/php && zip -qr "../../dist/hitechpay-php-${tag}.zip" . -x 'vendor/*' 'tests/*')
+
+          # WHMCS gateway module (copy modules/ into the WHMCS root)
+          (cd plugins/whmcs && zip -qr "../../dist/hitechpay-whmcs-${tag}.zip" modules)
+
+          # WooCommerce plugin (upload via WordPress → Plugins → Add New → Upload)
+          git -C upstream/hyperswitch-woocommerce-plugin archive --format=zip \
+            --prefix=hitechpay-woocommerce/ -o "$PWD/dist/hitechpay-woocommerce-${tag}.zip" HEAD
+
+          (cd dist && sha256sum * > SHA256SUMS)
+          ls -la dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: HiTechPay ${{ steps.tag.outputs.tag }}
+          body_path: release-notes.md
+          prerelease: ${{ startsWith(steps.tag.outputs.tag, 'v0.') }}
+          files: dist/*

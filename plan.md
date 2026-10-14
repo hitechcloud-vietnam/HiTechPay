@@ -1,6 +1,6 @@
 # HiTechPay — Kế hoạch & trạng thái dự án
 
-Cập nhật: 2026-10-14 · Nhánh chính: **`main`** · Chi tiết từng việc dở dang: [tasks/](tasks/README.md)
+Cập nhật: 2026-10-14 · Nhánh chính: **`main`** · Phiên bản: **v0.1.0** ([CHANGELOG](CHANGELOG.md)) · Chi tiết từng việc dở dang: [tasks/](tasks/README.md)
 
 ## 1. Mục tiêu
 Nền tảng thanh toán HiTechPay = Juspay Hyperswitch (white-label) + các cổng thanh toán Việt Nam + SDK/plugin,
@@ -28,6 +28,7 @@ triển khai được bằng Docker Compose hoặc Kubernetes, sẵn sàng vận
 | CI (patches, unit test connector, Node SDK, PHP SDK) | ✅ xanh trên `main` (run #2); các run mới đang chạy | |
 | Images (GHCR) | ⚠️ dashboard ✅, checkout-sdk ✅, router ❌ lần đầu | Đã sửa: build với `--features redis-rs` → chờ run mới ([task 002](tasks/002-images-ci-ghcr.md)) |
 | CodeQL | ✅ | |
+| Release (tag `v*`) | 🚀 v0.1.0 | GitHub Release + tệp đính kèm (patch, deploy, SDK Node/PHP, WHMCS, WooCommerce); ghi chú lấy từ `CHANGELOG.md` |
 
 ## 4. Việc chưa hoàn thành — thứ tự ưu tiên
 
@@ -69,4 +70,5 @@ triển khai được bằng Docker Compose hoặc Kubernetes, sẵn sàng vận
 3. Code trong submodule → commit trên nhánh `hitechpay` của submodule → `scripts/export-patches.sh` → commit `patches/` ở repo cha.
 4. Kiểm tra: `cargo check -p router --tests`, unit test connector, `npx rescript` (frontend), test SDK.
 5. PR vào `main`; CI phải xanh; reviewer duyệt; merge (không force-push `main`).
+   Phát hành: thêm mục `## [x.y.z]` vào `CHANGELOG.md`, rồi `git tag -a vx.y.z -m "HiTechPay vx.y.z" && git push origin vx.y.z`.
 6. Cập nhật `plan.md` (bảng mục 4) và chuyển file task sang `tasks/done/`.
