@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 # Re-create the `hitechpay` branch of every patched submodule from its pinned upstream
 # commit and apply patches/<repo>/*.patch with `git am`.
+#
+#   scripts/apply-patches.sh                 # every patched repo (must all be initialised)
+#   scripts/apply-patches.sh hyperswitch     # only the named repo(s), e.g. in CI
 source "$(dirname "$0")/lib.sh"
 
-for repo in "${PATCHED_REPOS[@]}"; do
+repos=("$@")
+[[ ${#repos[@]} -gt 0 ]] || repos=("${PATCHED_REPOS[@]}")
+
+for repo in "${repos[@]}"; do
+  [[ " ${PATCHED_REPOS[*]} " == *" $repo "* ]] || die "unknown patched repo: $repo (expected one of: ${PATCHED_REPOS[*]})"
   dir="$ROOT_DIR/upstream/$repo"
   patches=("$PATCH_DIR/$repo"/*.patch)
   [[ -d "$dir/.git" || -f "$dir/.git" ]] || die "upstream/$repo is not initialised, run scripts/bootstrap.sh"

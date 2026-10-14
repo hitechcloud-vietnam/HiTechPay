@@ -1,0 +1,219 @@
+name: Images
+
+# Builds the HiTechPay container images from the patched upstream submodules and pushes them
+# to GHCR (same build contexts / args as deploy/docker-compose.yml):
+#   ghcr.io/hitechcloud-vietnam/hitechpay-router        upstream/hyperswitch               BINARY=router
+#   ghcr.io/hitechcloud-vietnam/hitechpay-scheduler     upstream/hyperswitch               BINARY=scheduler
+#   ghcr.io/hitechcloud-vietnam/hitechpay-dashboard     upstream/hyperswitch-control-center
+#   ghcr.io/hitechcloud-vietnam/hitechpay-checkout-sdk  upstream/hyperswitch-web
+# Tags: the upstream release the patches sit on (e.g. v1.127.0, used by deploy/helm), the git
+# tag (v*), the branch (main), latest (default branch) and sha-<short>.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  IMAGE_PREFIX: ghcr.io/hitechcloud-vietnam/hitechpay
+  # identity for `git am` in scripts/apply-patches.sh
+  GIT_AUTHOR_NAME: hitechpay-ci
+  GIT_AUTHOR_EMAIL: ci@hitechpay.vn
+  GIT_COMMITTER_NAME: hitechpay-ci
+  GIT_COMMITTER_EMAIL: ci@hitechpay.vn
+
+jobs:
+  core:
+    name: router + scheduler
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      REPO: hyperswitch
+    steps:
+      - name: Free disk space for the Rust build
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force
+          df -h /
+
+      - uses: actions/checkout@v4
+
+      - name: Fetch and patch upstream/${{ env.REPO }}
+        run: |
+          git submodule update --init --depth 1 "upstream/$REPO"
+          scripts/apply-patches.sh "$REPO"
+
+      # A submodule's .git is a file pointing into the parent's .git/modules, which does not
+      # exist inside the Docker build context; move the git dir into the submodule so build
+      # scripts that call git (vergen in the router) see a valid repository.
+      - name: Make the submodule git dir self-contained
+        run: |
+          dir="upstream/$REPO"
+          if [ -f "$dir/.git" ]; then
+            gitdir="$(git -C "$dir" rev-parse --absolute-git-dir)"
+            rm "$dir/.git"
+            mv "$gitdir" "$dir/.git"
+            git config --file "$dir/.git/config" --unset core.worktree || true
+          fi
+          git -C "$dir" log --oneline -1
+
+      - name: Resolve upstream release tag
+        id: upstream
+        run: |
+          base="$(tr -d '[:space:]' < "patches/$REPO/BASE")"
+          tag="$(git ls-remote --tags "https://github.com/juspay/$REPO" \
+            | awk -v b="$base" '$1 == b { t = $2; sub("^refs/tags/", "", t); sub("\\^\\{\\}$", "", t); print t }' \
+            | grep -E '^v[0-9]' | sort -V | tail -n1 || true)"
+          echo "upstream $REPO ${base:0:10} -> ${tag:-<no release tag>}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Router image metadata
+        id: meta-router
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-router
+          tags: |
+            type=raw,value=${{ steps.upstream.outputs.tag }},enable=${{ steps.upstream.outputs.tag != '' }}
+            type=ref,event=tag
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      - name: Build and push router
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream/hyperswitch
+          file: upstream/hyperswitch/Dockerfile
+          build-args: |
+            BINARY=router
+            EXTRA_FEATURES=
+            RUN_ENV=sandbox
+          push: true
+          tags: ${{ steps.meta-router.outputs.tags }}
+          labels: ${{ steps.meta-router.outputs.labels }}
+          cache-from: type=gha,scope=router
+          # the cargo build layer is large; never fail the build because the cache upload did
+          cache-to: type=gha,scope=router,mode=max,ignore-error=true
+
+      - name: Scheduler image metadata
+        id: meta-scheduler
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-scheduler
+          tags: |
+            type=raw,value=${{ steps.upstream.outputs.tag }},enable=${{ steps.upstream.outputs.tag != '' }}
+            type=ref,event=tag
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      # BINARY is declared after `cargo build` in the Dockerfile, so this reuses the router's
+      # build layers from the local builder and only re-runs the final stage.
+      - name: Build and push scheduler
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream/hyperswitch
+          file: upstream/hyperswitch/Dockerfile
+          build-args: |
+            BINARY=scheduler
+            SCHEDULER_FLOW=consumer
+          push: true
+          tags: ${{ steps.meta-scheduler.outputs.tags }}
+          labels: ${{ steps.meta-scheduler.outputs.labels }}
+          cache-from: |
+            type=gha,scope=router
+            type=gha,scope=scheduler
+          cache-to: type=gha,scope=scheduler,mode=min,ignore-error=true
+
+  frontend:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: dashboard
+            repo: hyperswitch-control-center
+          - image: checkout-sdk
+            repo: hyperswitch-web
+    env:
+      REPO: ${{ matrix.repo }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch and patch upstream/${{ matrix.repo }}
+        run: |
+          git submodule update --init --depth 1 "upstream/$REPO"
+          scripts/apply-patches.sh "$REPO"
+
+      # hyperswitch-web's Dockerfile runs `git submodule update --init --recursive` (shared-code)
+      # inside the build, which needs a real .git directory in the build context.
+      - name: Make the submodule git dir self-contained
+        run: |
+          dir="upstream/$REPO"
+          if [ -f "$dir/.git" ]; then
+            gitdir="$(git -C "$dir" rev-parse --absolute-git-dir)"
+            rm "$dir/.git"
+            mv "$gitdir" "$dir/.git"
+            git config --file "$dir/.git/config" --unset core.worktree || true
+          fi
+          git -C "$dir" log --oneline -1
+
+      - name: Resolve upstream release tag
+        id: upstream
+        run: |
+          base="$(tr -d '[:space:]' < "patches/$REPO/BASE")"
+          tag="$(git ls-remote --tags "https://github.com/juspay/$REPO" \
+            | awk -v b="$base" '$1 == b { t = $2; sub("^refs/tags/", "", t); sub("\\^\\{\\}$", "", t); print t }' \
+            | grep -E '^v[0-9]' | sort -V | tail -n1 || true)"
+          echo "upstream $REPO ${base:0:10} -> ${tag:-<no release tag>}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
+          tags: |
+            type=raw,value=${{ steps.upstream.outputs.tag }},enable=${{ steps.upstream.outputs.tag != '' }}
+            type=ref,event=tag
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      - name: Build and push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream/${{ matrix.repo }}
+          file: upstream/${{ matrix.repo }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max,ignore-error=true

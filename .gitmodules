@@ -11,6 +11,7 @@
 	path = upstream/hyperswitch-client-core
 	url = https://github.com/juspay/hyperswitch-client-core
 	shallow = true
+	ignore = all
 [submodule "upstream/hyperswitch-control-center"]
 	path = upstream/hyperswitch-control-center
 	url = https://github.com/juspay/hyperswitch-control-center
@@ -53,6 +54,7 @@
 	path = upstream/hyperswitch-woocommerce-plugin
 	url = https://github.com/juspay/hyperswitch-woocommerce-plugin
 	shallow = true
+	ignore = all
 [submodule "upstream/react-native-hyperswitch"]
 	path = upstream/react-native-hyperswitch
 	url = https://github.com/juspay/react-native-hyperswitch

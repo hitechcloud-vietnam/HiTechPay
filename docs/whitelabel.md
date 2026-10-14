@@ -27,4 +27,6 @@ package names, upstream API hosts, the BECS (Australia) mandate legal entity.
 ## Review before production
 - Compliance texts (PCI DSS claims, Apple Pay template e-mail) now name HiTechPay — confirm with legal.
 - E-mail logo (`entity_logo_url`) must be an absolute PNG URL on your domain.
-- Playwright / Cypress e2e suites still assert upstream "Hyperswitch" strings.
+- Playwright (dashboard) assertions expect the HiTechPay strings. E-mail subjects come from the router's
+  `theme.email_config.entity_name` and the Cypress demo app ("Hyperswitch Unified Checkout") is not rebranded,
+  so those assertions are unchanged. Visual-regression snapshots (`playwright-tests/visual-testing`) need regenerating.

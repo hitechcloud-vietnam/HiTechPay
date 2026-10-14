@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
 Date: Wed, 14 Oct 2026 10:01:43 +0000
-Subject: [PATCH 3/3] feat(wasm): rebuild euclid wasm with Vietnamese connector
+Subject: [PATCH 3/4] feat(wasm): rebuild euclid wasm with Vietnamese connector
  configs
 
 Built from the HiTechPay hyperswitch branch (crates/euclid_wasm, features

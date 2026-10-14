@@ -5,9 +5,19 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# `git am` (scripts/apply-patches.sh) needs an identity; runners have none configured.
+env:
+  GIT_AUTHOR_NAME: hitechpay-ci
+  GIT_AUTHOR_EMAIL: ci@hitechpay.vn
+  GIT_COMMITTER_NAME: hitechpay-ci
+  GIT_COMMITTER_EMAIL: ci@hitechpay.vn
 
 jobs:
   patches:
@@ -17,7 +27,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Fetch patched submodules
         run: |
-          for repo in hyperswitch hyperswitch-web hyperswitch-control-center; do
+          for repo in hyperswitch hyperswitch-web hyperswitch-control-center \
+            hyperswitch-client-core hyperswitch-woocommerce-plugin; do
             git submodule update --init --depth 1 "upstream/$repo"
           done
       - name: Apply patches
@@ -27,9 +38,16 @@ jobs:
           python3 tools/register_connectors.py upstream/hyperswitch
           python3 tools/register_control_center.py upstream/hyperswitch-control-center
           python3 tools/whitelabel.py
-          git -C upstream/hyperswitch diff --exit-code
-          git -C upstream/hyperswitch-control-center diff --exit-code
-          git -C upstream/hyperswitch-web diff --exit-code
+          # status (not diff) so files the tools would add are caught too
+          for repo in hyperswitch hyperswitch-control-center hyperswitch-web; do
+            changes="$(git -C "upstream/$repo" status --porcelain)"
+            if [ -n "$changes" ]; then
+              echo "::error::tools changed upstream/$repo after the patches were applied:"
+              echo "$changes"
+              git -C "upstream/$repo" diff --stat
+              exit 1
+            fi
+          done
 
   connectors:
     name: VN connector unit tests
@@ -37,10 +55,12 @@ jobs:
     needs: patches
     steps:
       - uses: actions/checkout@v4
-      - run: git submodule update --init --depth 1 upstream/hyperswitch && scripts/apply-patches.sh
-        env:
-          GIT_AUTHOR_NAME: ci
-          GIT_AUTHOR_EMAIL: ci@hitechpay.vn
+      # only upstream/hyperswitch is initialised here, so patch just that repo
+      # (without an argument apply-patches.sh stops at the uninitialised web/dashboard repos)
+      - name: Fetch and patch upstream/hyperswitch
+        run: |
+          git submodule update --init --depth 1 upstream/hyperswitch
+          scripts/apply-patches.sh hyperswitch
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:

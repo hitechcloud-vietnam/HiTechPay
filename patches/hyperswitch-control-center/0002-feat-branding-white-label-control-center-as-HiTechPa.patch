@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
 Date: Wed, 14 Oct 2026 09:55:25 +0000
-Subject: [PATCH 2/3] feat(branding): white-label control center as HiTechPay
+Subject: [PATCH 2/4] feat(branding): white-label control center as HiTechPay
 
 - add HiTechPay logo/icon/favicon under public/hyperswitch/assets/hitechpay
   (served at /assets/hitechpay/...) and use them as built-in defaults for

@@ -1,0 +1,353 @@
+# HiTechPay overrides for the upstream umbrella chart
+#   upstream/hyperswitch-helm/charts/hyperswitch-stack
+# (published as hyperswitch/hyperswitch-stack at https://juspay.github.io/hyperswitch-helm).
+#
+# Install: see deploy/helm/README.md. Before installing, create:
+#   * Secret    hitechpay-router-secrets  (admin/JWT/master/hash keys, referenced below)
+#   * ConfigMap superposition-seed        (HiTechPay's patched config/superposition_seed.toml)
+#
+# Images are built and pushed by .github/workflows/images.yml. Each image is tagged with the
+# upstream release it is patched on (router/scheduler v1.127.0, dashboard v1.38.9, checkout SDK
+# v0.134.0) because the chart reuses those versions: the DB migration job downloads
+# juspay/hyperswitch at `services.router.version`, and the checkout SDK path is
+# /web/<gitVersion>/v1/. Bump all of them together when upgrading upstream
+# (scripts/upgrade-upstream.sh). Pin a specific build with the `sha-<commit>` / `v*` tags only
+# after checking that note.
+#
+# GHCR packages are private by default; the router chart has no imagePullSecrets, so make the
+# four hitechpay-* packages public (or add a pull secret to the service accounts).
+
+# Monitoring (VictoriaMetrics/Grafana/Loki) is heavy; enable explicitly when needed:
+#   --set hyperswitch-monitoring.enabled=true
+hyperswitch-monitoring:
+  enabled: false
+
+# ---------------------------------------------------------------------------------------------
+# Router, scheduler (consumer/producer), drainer
+# ---------------------------------------------------------------------------------------------
+hyperswitch-app:
+  services:
+    router:
+      imageRegistry: ghcr.io
+      image: hitechcloud-vietnam/hitechpay-router
+      version: v1.127.0
+      host: https://api.hitechpay.vn
+    # The HiTechPay scheduler image runs as consumer or producer depending on SCHEDULER_FLOW,
+    # which the chart sets per deployment (same binary as deploy/docker-compose.yml).
+    consumer:
+      imageRegistry: ghcr.io
+      image: hitechcloud-vietnam/hitechpay-scheduler
+      version: v1.127.0
+    producer:
+      imageRegistry: ghcr.io
+      image: hitechcloud-vietnam/hitechpay-scheduler
+      version: v1.127.0
+    # The drainer has no HiTechPay changes (connector names are stored as plain strings), so
+    # the upstream image of the same release is used.
+    drainer:
+      imageRegistry: docker.juspay.io
+      image: juspaydotin/hyperswitch-drainer
+      version: v1.127.0
+    sdk:
+      host: https://checkout.hitechpay.vn
+      version: 0.134.0
+      subversion: v1
+
+  # The upstream seed lacks the Vietnamese connectors; ship the patched one instead:
+  #   kubectl -n hitechpay create configmap superposition-seed \
+  #     --from-file=superposition_seed.toml=upstream/hyperswitch/config/superposition_seed.toml
+  superpositionFallback:
+    enabled: true
+    source: configMap
+
+  server:
+    # sandbox -> connector sandbox URLs below; switch both to production for live traffic.
+    run_env: sandbox
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/proxy-body-size: 10m
+      hostname: api.hitechpay.vn
+      path: /
+      pathType: Prefix
+      tls:
+        - secretName: hitechpay-api-tls
+          hosts:
+            - api.hitechpay.vn
+    configs:
+      server:
+        base_url: https://api.hitechpay.vn
+      user:
+        base_url: https://dashboard.hitechpay.vn
+        totp_issuer_name: HiTechPay
+      multitenancy:
+        tenants:
+          public:
+            base_url: https://api.hitechpay.vn
+            user:
+              control_center_url: https://dashboard.hitechpay.vn
+
+      # Vietnamese connectors. The chart's bundled configs/router-*.toml do not know them and
+      # the router rejects connectors with an empty base_url, so they are set here
+      # (ROUTER__CONNECTORS__<NAME>__BASE_URL). Values = upstream/hyperswitch/config/deployments/sandbox.toml.
+      # Production (config/deployments/production.toml):
+      #   momo https://payment.momo.vn/ · vnpay https://merchant.vnpay.vn/merchant_webapi/api/transaction
+      #   zalopay https://openapi.zalopay.vn/ · viettelmoney https://pay3.viettel.vn/PaymentAPI/webresources/postData
+      #   payos https://api-merchant.payos.vn/ · sepay https://my.sepay.vn/ · pay2s https://my.pay2s.vn/
+      connectors:
+        momo:
+          base_url: https://test-payment.momo.vn/
+        vnpay:
+          base_url: https://sandbox.vnpayment.vn/merchant_webapi/api/transaction
+        zalopay:
+          base_url: https://sb-openapi.zalopay.vn/
+        viettelmoney:
+          base_url: https://sandbox.viettel.vn/PaymentAPI/webresources/postData
+        payos:
+          base_url: https://api-merchant.payos.vn/
+        sepay:
+          base_url: https://my.sepay.vn/
+        pay2s:
+          base_url: https://my.pay2s.vn/
+
+      # Branding in e-mails, payment-method-collect and payout links
+      theme:
+        email_config:
+          entity_name: HiTechPay
+          # must be an absolute PNG URL reachable by mail clients
+          entity_logo_url: https://hitechpay.vn/assets/logo.png
+          foreground_color: "#0A1F44"
+          primary_color: "#0B5FFF"
+          background_color: "#FFFFFF"
+      generic_link:
+        payment_method_collect:
+          ui_config:
+            logo: https://hitechpay.vn/assets/logo.png
+            merchant_name: HiTechPay
+            theme: "#0B5FFF"
+        payout_link:
+          ui_config:
+            logo: https://hitechpay.vn/assets/logo.png
+            merchant_name: HiTechPay
+            theme: "#0B5FFF"
+      email:
+        sender_email: no-reply@hitechpay.vn
+        prod_intent_recipient_email: support@hitechpay.vn
+        recon_recipient_email: support@hitechpay.vn
+
+      # Secrets come from an existing Secret instead of the chart defaults (test_admin, ...).
+      # The env var from `_secretRef` takes precedence over the chart's own Secret (envFrom);
+      # `_secret` is overridden with a marker so the upstream defaults (test_admin, ...) are not
+      # written there (`null` does not remove a subchart default through the umbrella chart).
+      #   kubectl -n hitechpay create secret generic hitechpay-router-secrets \
+      #     --from-literal=admin_api_key="$(openssl rand -hex 32)" \
+      #     --from-literal=recon_admin_api_key="$(openssl rand -hex 32)" \
+      #     --from-literal=jwt_secret="$(openssl rand -hex 32)" \
+      #     --from-literal=master_enc_key="$(openssl rand -hex 32)" \
+      #     --from-literal=api_key_hash_key="$(openssl rand -hex 32)"
+      secrets:
+        admin_api_key:
+          _secret: unused-see-hitechpay-router-secrets
+          _secretRef:
+            name: hitechpay-router-secrets
+            key: admin_api_key
+        recon_admin_api_key:
+          _secret: unused-see-hitechpay-router-secrets
+          _secretRef:
+            name: hitechpay-router-secrets
+            key: recon_admin_api_key
+        jwt_secret:
+          _secret: unused-see-hitechpay-router-secrets
+          _secretRef:
+            name: hitechpay-router-secrets
+            key: jwt_secret
+        master_enc_key:
+          _secret: unused-see-hitechpay-router-secrets
+          _secretRef:
+            name: hitechpay-router-secrets
+            key: master_enc_key
+      api_keys:
+        hash_key:
+          _secret: unused-see-hitechpay-router-secrets
+          _secretRef:
+            name: hitechpay-router-secrets
+            key: api_key_hash_key
+
+# ---------------------------------------------------------------------------------------------
+# Checkout web SDK (hyperswitch-web). The chart's init container runs `npm run build:<sdkEnv>`
+# inside "<imageRegistry>/<image>:v<gitVersion>" and serves dist/ with nginx, so the HiTechPay
+# image (same Dockerfile as upstream, source at /usr/src/app) is a drop-in replacement.
+# Served at https://checkout.hitechpay.vn/web/0.134.0/v1/HyperLoader.js and /HyperLoader.js.
+# ---------------------------------------------------------------------------------------------
+hyperswitch-web:
+  enabled: true
+  autoBuild:
+    imageRegistry: ghcr.io
+    image: hitechcloud-vietnam/hitechpay-checkout-sdk
+    gitCloneParam:
+      gitVersion: 0.134.0   # image tag v0.134.0
+    buildParam:
+      envSdkUrl: https://checkout.hitechpay.vn
+      envBackendUrl: https://api.hitechpay.vn
+      envLogsUrl: ""
+  env:
+    sdkEnv: sandbox        # prod for live
+    enableLogging: "false"
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      # drop the AWS ALB annotations set by the stack chart
+      alb.ingress.kubernetes.io/backend-protocol: null
+      alb.ingress.kubernetes.io/backend-protocol-version: null
+      alb.ingress.kubernetes.io/group.name: null
+      alb.ingress.kubernetes.io/ip-address-type: null
+      alb.ingress.kubernetes.io/listen-ports: null
+      alb.ingress.kubernetes.io/load-balancer-name: null
+      alb.ingress.kubernetes.io/scheme: null
+      alb.ingress.kubernetes.io/security-groups: null
+      alb.ingress.kubernetes.io/tags: null
+      alb.ingress.kubernetes.io/target-type: null
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: checkout.hitechpay.vn
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: hitechpay-checkout-tls
+        hosts:
+          - checkout.hitechpay.vn
+
+# ---------------------------------------------------------------------------------------------
+# Merchant dashboard (hyperswitch-control-center). The HiTechPay image already bakes the brand
+# (config/config.toml + config/theme.json == deploy/config/dashboard_theme.json); the chart turns
+# `config` into `default__*` env overrides, so every key it sets is pinned here to the values of
+# deploy/config/dashboard.toml (keys the chart sets that dashboard.toml lacks -> "false").
+# `audit_trail` is derived by the chart from dependencies.clickhouse.enabled.
+# ---------------------------------------------------------------------------------------------
+hyperswitch-control-center:
+  enabled: true
+  image:
+    registry: ghcr.io
+    repository: hitechcloud-vietnam/hitechpay-dashboard
+    tag: v1.38.9
+  dependencies:
+    router:
+      host: https://api.hitechpay.vn
+    sdk:
+      host: https://checkout.hitechpay.vn
+      version: 0.134.0
+      subversion: v1
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: dashboard.hitechpay.vn
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: hitechpay-dashboard-tls
+        hosts:
+          - dashboard.hitechpay.vn
+  config:
+    mixpanelToken: ""
+    default:
+      endpoints:
+        logo_url: /assets/hitechpay/Light/logo.svg
+        favicon_url: /assets/hitechpay/favicon.svg
+        dss_certificate_us_url: ""
+        dss_certificate_eu_url: ""
+        agreement_url: ""
+        agreement_version: ""
+        mixpanel_token: ""
+        hypersense_url: ""
+        recon_iframe_url: ""
+        dynamo_simulation_template_url: ""
+      # deploy/config/dashboard_theme.json / branding/brand.json colours
+      theme:
+        primary_color: "#0B5FFF"
+        primary_hover_color: "#0047D1"
+        sidebar_color: "#0A1F44"
+        sidebar_border_color: "#0A1F44"
+        sidebar_primary: "#FFFFFF"
+        sidebar_primary_text_color: "#FFFFFF"
+        sidebar_secondary: "#0A1F44"
+        sidebar_secondary_text_color: "#C9D4EA"
+      features:
+        branding: "false"
+        mixpanel: "false"
+        test_live_toggle: "false"
+        is_live_mode: "false"
+        feedback: "false"
+        x_feature_route: "false"
+        compliance_certificate: "false"
+        force_cookies: "false"
+        granularity: "false"
+        maintenance_alert: ""
+        down_time: "false"
+        email: "false"
+        totp: "true"
+        quick_start: "false"
+        global_search: "false"
+        global_search_filters: "false"
+        explore_recipes: "false"
+        sample_data: "false"
+        generate_report: "false"
+        transaction_view: "true"
+        configure_pmts: "true"
+        test_processors: "true"
+        paypal_automatic_flow: "false"
+        payout: "true"
+        threeds_authenticator: "true"
+        frm: "true"
+        pm_authentication_processor: "true"
+        tax_processor: "true"
+        dispute_analytics: "false"
+        authentication_analytics: "false"
+        performance_monitor: "false"
+        new_analytics: "false"
+        new_analytics_smart_retries: "false"
+        new_analytics_refunds: "false"
+        new_analytics_filters: "false"
+        routing_analytics: "false"
+        threeds_exemption: "false"
+        surcharge: "true"
+        dispute_evidence_upload: "false"
+        recon: "true"
+        recon_v2: "false"
+        payment_settings_v2: "false"
+        custom_webhook_headers: "true"
+        tenant_user: "false"
+        google_pay_decryption_flow: "false"
+        sample_data_analytics: "false"
+        acquirer_config_settings: "false"
+        dev_click_to_pay: "true"
+        dev_alt_payment_methods: "false"
+        dev_modularity_v2: "false"
+        dev_recon_v2_product: "false"
+        dev_recovery_v2_product: "false"
+        dev_vault_v2_product: "false"
+        dev_hypersense_v2_product: "false"
+        dev_intelligent_routing_v2: "false"
+        dev_orchestration_v2_product: "false"
+        dev_debit_routing: "false"
+        dev_webhooks: "false"
+        dev_recon_engine_v1: "false"
+        dev_ai_chat_bot: "false"
+        dev_roles_v2: "false"
+        cug_user: "false"
+        connector_clone: "false"
+        system_metrics: "false"
+        user_journey_analytics: "false"
+        payment_link_operations: "false"
+        hierarchical_configurations: "false"
+        dev_advanced_payments_view: "false"
+        dev_blocklist: "false"
+        dev_superposition: "false"
+        live_users_counter: "false"

@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: thanhan92-f1 <thanhan92-f1@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 10:13:37 +0000
+Subject: [PATCH 4/4] test(cypress): describe the HiTechPay "Powered by" badge
+
+The white-label keeps the sprite symbol id (#powerd-by-hyper) but the
+badge now renders "Powered by HiTechPay"; update the test description and
+titles. The assertions (symbol id lookup) and the demo-app heading
+"Hyperswitch Unified Checkout" (Hyperswitch-React-Demo-App is not
+rebranded) still match and are unchanged.
+
+diff --git a/cypress-tests/cypress/e2e/01-sdk-core/branding-visibility.cy.ts b/cypress-tests/cypress/e2e/01-sdk-core/branding-visibility.cy.ts
+index cd0a6eb..efca55b 100644
+--- a/cypress-tests/cypress/e2e/01-sdk-core/branding-visibility.cy.ts
++++ b/cypress-tests/cypress/e2e/01-sdk-core/branding-visibility.cy.ts
+@@ -1,7 +1,7 @@
+ /**
+  * Branding Visibility Tests
+  * Verifies that the branding option controls the visibility of the
+- * "Powered by Hyperswitch" icon in the payment element.
++ * "Powered by HiTechPay" icon (sprite symbol #powerd-by-hyper) in the payment element.
+  */
+ import {
+   getClientURL,
+@@ -51,7 +51,7 @@ describe("PaymentElement branding Option", () => {
+       });
+     });
+ 
+-    it("should display the Hyperswitch branding icon", () => {
++    it("should display the HiTechPay branding icon", () => {
+       getIframeBody()
+         .find("svg", { timeout: 10000 })
+         .filter((_index, el) => {
+@@ -86,7 +86,7 @@ describe("PaymentElement branding Option", () => {
+       });
+     });
+ 
+-    it("should hide the Hyperswitch branding icon", () => {
++    it("should hide the HiTechPay branding icon", () => {
+       getIframeBody().then(($body) => {
+         const svgs = $body.find("svg");
+         const brandingSvgs = svgs.filter((_index, el) => {
