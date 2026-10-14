@@ -5,7 +5,7 @@
 #   scripts/bootstrap.sh --core     # only the repos HiTechPay patches (faster)
 source "$(dirname "$0")/lib.sh"
 
-cd "$ROOT_DIR"
+cd "$ROOT_DIR" || exit 1
 if [[ "${1:-}" == "--core" ]]; then
   for repo in "${PATCHED_REPOS[@]}"; do
     log "fetching upstream/$repo"

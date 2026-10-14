@@ -1,0 +1,53 @@
+# Production overrides for a single host behind a TLS reverse proxy (nginx on the host).
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml --env-file deploy/.env ...
+# - application ports listen on 127.0.0.1 only (the host nginx terminates TLS)
+# - PostgreSQL / Redis are not published at all
+# - restart always, rotated json logs, memory limits
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+services:
+  pg:
+    ports: !reset []
+    restart: always
+    logging: *logging
+  redis-standalone:
+    restart: always
+    logging: *logging
+  router:
+    environment:
+      ROUTER__LOG__CONSOLE__LEVEL: INFO
+    ports: !override
+      - "127.0.0.1:${HTP_API_PORT:-8080}:8080"
+    restart: always
+    logging: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+  scheduler-consumer:
+    environment:
+      ROUTER__LOG__CONSOLE__LEVEL: INFO
+    restart: always
+    logging: *logging
+  scheduler-producer:
+    environment:
+      ROUTER__LOG__CONSOLE__LEVEL: INFO
+    restart: always
+    logging: *logging
+  dashboard:
+    ports: !override
+      - "127.0.0.1:${HTP_DASHBOARD_PORT:-9000}:9000"
+    restart: always
+    logging: *logging
+  checkout-sdk:
+    ports: !override
+      - "127.0.0.1:${HTP_SDK_PORT:-9050}:9050"
+    restart: always
+    logging: *logging
+  superposition:
+    restart: always
+    logging: *logging
